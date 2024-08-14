@@ -16,6 +16,7 @@ import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import { SafeERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 import { ERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+
 import { IERC20MetadataUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import { Ownable2StepUpgradeable } from "@openzeppelin/contracts-upgradeable/access/Ownable2StepUpgradeable.sol";
@@ -27,6 +28,7 @@ import "../utils/BlueberryErrors.sol" as Errors;
 
 import { BBMath } from "../libraries/BBMath.sol";
 import { IERC20Wrapper } from "../interfaces/IERC20Wrapper.sol";
+
 import { IWApxETH } from "../interfaces/IWApxETH.sol";
 import { IApxEth } from "../interfaces/IApxETH.sol";
 import "../interfaces/IWERC4626.sol";
@@ -49,7 +51,10 @@ contract WApxEth is IWERC4626, ERC1155Upgradeable, ReentrancyGuardUpgradeable, O
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @dev apxETH contract address
-    IApxEth private _apxETH;
+    address private _apxETH;
+
+    /// @dev pxETH contract address
+    address private _pxETH;
 
     /*//////////////////////////////////////////////////////////////////////////
                                      CONSTRUCTOR
@@ -70,13 +75,14 @@ contract WApxEth is IWERC4626, ERC1155Upgradeable, ReentrancyGuardUpgradeable, O
      * @param owner The owner of the contract.
      */
     function initialize(address apxETH, address owner) external initializer {
-        if (address(apxETH) == address(0) || address(owner) == address(0))
-            revert Errors.ZERO_ADDRESS();
+        if (address(apxETH) == address(0) || address(owner) == address(0)) revert Errors.ZERO_ADDRESS();
+
 
         __Ownable2Step_init();
         _transferOwnership(owner);
         __ReentrancyGuard_init();
         __ERC1155_init("wApxETH");
+
 
         _apxETH = IApxEth(apxETH);
     }
@@ -91,6 +97,7 @@ contract WApxEth is IWERC4626, ERC1155Upgradeable, ReentrancyGuardUpgradeable, O
         apxETH.deposit(amount, address(this));
 
         uint256 rewardPerToken = apxETH.rewardPerToken();
+
         uint256 id = encodeId(rewardPerToken);
         _mint(msg.sender, id, amount, "");
 
@@ -104,6 +111,7 @@ contract WApxEth is IWERC4626, ERC1155Upgradeable, ReentrancyGuardUpgradeable, O
         (, uint256[] memory rewards) = pendingRewards(id, amount);
         _burn(msg.sender, id, amount);
         amount += rewards[0];
+
 
         IApxEth apxETH = _apxETH;
         address pxETH = apxETH.asset();
@@ -129,6 +137,7 @@ contract WApxEth is IWERC4626, ERC1155Upgradeable, ReentrancyGuardUpgradeable, O
         uint256 rewardId,
         uint256 amount
     ) public view returns (address[] memory tokens, uint256[] memory rewards) {
+
         IApxEth apxETH = _apxETH;
         uint256 prevRewardPerToken = decodeId(rewardId);
         uint256 currRewardPerToken = apxETH.rewardPerToken();
@@ -140,6 +149,7 @@ contract WApxEth is IWERC4626, ERC1155Upgradeable, ReentrancyGuardUpgradeable, O
         tokens[0] = apxETH.asset();
         rewards[0] = (share * amount) / (10 ** apxETH.decimals());
     }
+
 
     /// @inheritdoc IWERC4626
     function balanceOf(address account) external view returns (uint256) {

@@ -11,6 +11,7 @@
 pragma solidity 0.8.22;
 
 /* solhint-disable max-line-length */
+
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import { IERC1155Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
 import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
@@ -45,6 +46,7 @@ interface IWERC4626 is IERC1155Upgradeable {
      * @param amount The amount of ERC1155 tokens to burn.
      * @return rewardAmount Returns the amount of rewards claimed.
      */
+
     function burn(uint256 id, uint256 amount) external returns (uint256);
 
 

@@ -16,6 +16,7 @@ export enum CONTRACT_NAMES {
 
   // Wrapper
   WERC20 = 'WERC20',
+  WApxEth = 'WApxEth',
   WMasterChef = 'WMasterChef',
   WIchiFarm = 'WIchiFarm',
   WCurveGauge = 'WCurveGauge',
@@ -56,6 +57,7 @@ export enum CONTRACT_NAMES {
   IchiSpell = 'IchiSpell',
   AuraSpell = 'AuraSpell',
   ShortLongSpell = 'ShortLongSpell',
+
   ShortLongSpell_ERC4626 = 'ShortLongSpell_ERC4626',
 
   // Interface
@@ -182,7 +184,6 @@ export const ADDRESS = {
   bWBTC: '0x506c190340F786c65548C0eE17c5EcDbba7807e0',
   bWETH: '0x8E09cC1d00c9bd67f99590E1b2433bF4Db5309C3',
   bALCX: '', // TODO: update address after mainnet deploy
-  apxETH: '0x9Ba021B0a9b958B5E75cE9f6dff97C7eE52cb3E6',
   bOHM: '', // TODO: update address after mainnet deploy
   bMIM: '', // TODO: update address after mainnet deploy
   bBAL: '', // TODO: update address after mainnet deploy
@@ -260,7 +261,6 @@ export const ADDRESS = {
   REDSTONE_EZETH_ETH_FEED: '0xF4a3e183F59D2599ee3DF213ff78b1B3b1923696',
   REDSTONE_USDE_USD_FEED: '0xbC5FBcf58CeAEa19D523aBc76515b9AEFb5cfd58',
   REDSTONE_APXETH_ETH_FEED: '0x19219BC90F48DeE4d5cF202E09c438FAacFd8Bea',
-
   // Dex Router
   UNI_V2_ROUTER: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D',
   UNI_V3_ROUTER: '0xE592427A0AEce92De3Edee1F18E0157C05861564',
