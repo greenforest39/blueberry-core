@@ -18,6 +18,7 @@ import { ADDRESS, CONTRACT_NAMES } from '../../../constant';
 import { deployBTokens } from '../../helpers/money-market';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { faucetToken } from '../../helpers/paraswap';
+import { deploySoftVaults } from '../../helpers/markets';
 
 const OneDay = 86400;
 // Use Two days time gap for chainlink, because we may increase timestamp manually to test reward amount

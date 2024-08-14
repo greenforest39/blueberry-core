@@ -26,6 +26,8 @@ import {
 import { ADDRESS, CONTRACT_NAMES } from '../../constant';
 import { deployBTokens } from './money-market';
 import { impersonateAccount } from '.';
+import { deploySoftVaults } from './markets';
+import { faucetToken } from './paraswap';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable prefer-const */
@@ -66,23 +68,9 @@ export interface CvxProtocol {
   bank: BlueberryBank;
   convexSpell: ConvexSpell;
   convexSpellWithVolatileOracle: ConvexSpell;
-  usdcSoftVault: SoftVault;
-  crvSoftVault: SoftVault;
-  daiSoftVault: SoftVault;
-  wethSoftVault: SoftVault;
-  hardVault: HardVault;
+
   feeManager: FeeManager;
   uniV3Lib: UniV3WrappedLib;
-  bUSDC: Contract;
-  bICHI: Contract;
-  bCRV: Contract;
-  bDAI: Contract;
-  bMIM: Contract;
-  bLINK: Contract;
-  bBAL: Contract;
-  //bALCX: Contract;
-  bWETH: Contract;
-  bWBTC: Contract;
 }
 
 export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxProtocol> => {
@@ -104,23 +92,14 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   let convexSpell: ConvexSpell;
   let convexSpellWithVolatileOracle: ConvexSpell;
 
-  let escrowBase: PoolEscrow;
   let escrowFactory: PoolEscrowFactory;
 
   let config: ProtocolConfig;
   let feeManager: FeeManager;
   let bank: BlueberryBank;
-  let usdcSoftVault: SoftVault;
-  let crvSoftVault: SoftVault;
-  let mimSoftVault: SoftVault;
-  let daiSoftVault: SoftVault;
-  let linkSoftVault: SoftVault;
-  let wstETHSoftVault: SoftVault;
-  let wethSoftVault: SoftVault;
-  let wbtcSoftVault: SoftVault;
-  let hardVault: HardVault;
 
   let comptroller: Comptroller;
+
   let bUSDC: Contract;
   let bICHI: Contract;
   let bCRV: Contract;
@@ -233,7 +212,11 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
 
   const LinkedLibFactory = await ethers.getContractFactory('UniV3WrappedLib');
   const LibInstance = await LinkedLibFactory.deploy();
-
+  await faucetToken(CRV, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(USDC, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(DAI, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(wstETH, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(WETH, utils.parseUnits('100000'), admin, 100);
   const MockOracle = await ethers.getContractFactory(CONTRACT_NAMES.MockOracle);
   mockOracle = <MockOracle>await MockOracle.deploy();
   await mockOracle.deployed();
@@ -352,6 +335,7 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
 
   const bTokens = await deployBTokens(admin.address);
   comptroller = bTokens.comptroller;
+
   bUSDC = bTokens.bUSDC;
   bICHI = bTokens.bICHI;
   bCRV = bTokens.bCRV;
@@ -622,21 +606,6 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
     bank,
     convexSpell,
     convexSpellWithVolatileOracle,
-    usdcSoftVault,
-    crvSoftVault,
-    daiSoftVault,
-    wethSoftVault,
-    hardVault,
     uniV3Lib: LibInstance,
-    bUSDC,
-    bICHI,
-    bCRV,
-    bDAI,
-    bMIM,
-    bLINK,
-    bBAL,
-    //bALCX,
-    bWETH,
-    bWBTC,
   };
 };

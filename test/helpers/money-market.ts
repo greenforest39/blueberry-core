@@ -1,6 +1,6 @@
 import { BigNumber, utils } from 'ethers';
 import { ethers } from 'hardhat';
-
+import { blueberryMarkets } from '../../test/helpers/markets';
 import { ADDRESS } from '../../constant';
 
 async function deployUnitroller() {
@@ -120,7 +120,6 @@ async function deployWrapped(
   return bWrappedNativeDelegator;
 }
 
-export async function deployBTokens(admin: string) {
   const unitroller = await deployUnitroller();
   const comptroller = await deployComptroller();
   const bTokenAdmin = await deployBTokenAdmin(admin);
@@ -151,12 +150,16 @@ export async function deployBTokens(admin: string) {
 
   await comptroller._setPriceOracle(priceOracleProxyUSD.address);
 
+  // TODO: Fix to add both interest rate models.
   let baseRate = 0;
   let multiplier = utils.parseEther('0.2');
   let jump = utils.parseEther('5');
   let kink1 = utils.parseEther('0.7');
   let roof = utils.parseEther('2');
   let IRM = await deployInterestRateModel(baseRate, multiplier, jump, kink1, roof, admin);
+  
+  for (let i = 0; i < blueberryMarkets.length; i++) {
+    const market = blueberryMarkets[i];
 
   // Deploy USDC
   const bUSDC = await deployBToken(
@@ -326,15 +329,7 @@ export async function deployBTokens(admin: string) {
   //   bTokenAdmin.address
   // );
 
-  // const bCrvCvxCrv = await deployBToken(
-  //   ADDRESS.CRV_CVXCRV_CRV,
-  //   comptroller.address,
-  //   IRM.address,
-  //   "Blueberry CrvCVXCRV",
-  //   "bCrvCVXCRV",
-  //   8,
-  //   bTokenAdmin.address
-  // );
+    await comptroller._supportMarket(bToken.address, 0);
 
   await comptroller._supportMarket(bUSDC.address, 0);
   await comptroller._supportMarket(bICHI.address, 0);
