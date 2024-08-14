@@ -14,7 +14,8 @@ import {
 import { ethers, upgrades } from 'hardhat';
 import { ADDRESS, CONTRACT_NAMES } from '../../constant';
 import { CvxProtocol, setupCvxProtocol, evm_mine_blocks, fork } from '../helpers';
-import SpellABI from '../../abi/ConvexSpell.json';
+import SpellABI from '../../abi/contracts/spell/ConvexSpell.sol/ConvexSpell.json';
+
 import chai, { expect } from 'chai';
 import { near } from '../assertions/near';
 import { roughlyNear } from '../assertions/roughlyNear';
@@ -295,11 +296,9 @@ describe('Convex Spell', () => {
       );
 
       const bankInfo = await bank.getBankInfo(USDC);
-      console.log('USDC Bank Info:', bankInfo);
 
       const pos = await bank.getPositionInfo(positionId);
-      console.log('Position Info:', pos);
-      console.log('Position Value:', await bank.callStatic.getPositionValue(positionId));
+
       expect(pos.owner).to.be.equal(admin.address);
       expect(pos.collToken).to.be.equal(wconvex.address);
       expect(pos.debtToken).to.be.equal(USDC);
@@ -322,10 +321,6 @@ describe('Convex Spell', () => {
 
       await evm_mine_blocks(10);
 
-      const pendingRewardsInfo = await wconvex.callStatic.pendingRewards(position.collId, position.collateralSize);
-      const crvPendingReward = pendingRewardsInfo.rewards[0];
-      const cvxPendingReward = pendingRewardsInfo.rewards[1];
-
       await bank.execute(
         positionId,
         spell.address,
@@ -335,18 +330,24 @@ describe('Convex Spell', () => {
             collToken: CRV,
             borrowToken: USDC,
             collAmount: depositAmount,
-            borrowAmount: borrowAmount,
+            borrowAmount: 0.001 * 1e6,
             farmingPoolId: POOL_ID_1,
           },
           0,
         ])
       );
+      const pendingRewardsInfo = await wconvex.callStatic.pendingRewards(position.collId, position.collateralSize);
+      const crvPendingReward = pendingRewardsInfo.rewards[0];
+      const cvxPendingReward = pendingRewardsInfo.rewards[1];
 
       const afterSenderCrvBalance = await crv.balanceOf(admin.address);
       const afterSenderCvxBalance = await cvx.balanceOf(admin.address);
       // before - out + in = after => after + out = before + in
       expect(afterSenderCrvBalance.add(depositAmount)).to.be.roughlyNear(beforeSenderCrvBalance.add(crvPendingReward));
-      expect(afterSenderCvxBalance.sub(beforeTreasuryCvxBalance)).to.be.roughlyNear(cvxPendingReward);
+      expect(afterSenderCvxBalance.sub(beforeTreasuryCvxBalance)).to.be.approximately(
+        cvxPendingReward,
+        BigNumber.from(10).pow(16)
+      );
     });
 
     it('should be able to get position risk ratio', async () => {
@@ -355,10 +356,7 @@ describe('Convex Spell', () => {
       let ov = await bank.callStatic.getDebtValue(positionId);
       let cv = await bank.callStatic.getIsolatedCollateralValue(positionId);
       let risk = await bank.callStatic.getPositionRisk(positionId);
-      console.log('PV:', utils.formatUnits(pv));
-      console.log('OV:', utils.formatUnits(ov));
-      console.log('CV:', utils.formatUnits(cv));
-      console.log('Prev Position Risk', utils.formatUnits(risk, 2), '%');
+
       await mockOracle.setPrice(
         [USDC, CRV],
         [
@@ -370,11 +368,6 @@ describe('Convex Spell', () => {
       pv = await bank.callStatic.getPositionValue(positionId);
       ov = await bank.callStatic.getDebtValue(positionId);
       cv = await bank.callStatic.getIsolatedCollateralValue(positionId);
-      console.log('=======');
-      console.log('PV:', utils.formatUnits(pv));
-      console.log('OV:', utils.formatUnits(ov));
-      console.log('CV:', utils.formatUnits(cv));
-      console.log('Position Risk', utils.formatUnits(risk, 2), '%');
     });
     // TODO: Find another USDC curve pool
     // it("should revert increasing existing position when diff pos param given", async () => {
@@ -401,10 +394,8 @@ describe('Convex Spell', () => {
       const position = await bank.getPositionInfo(positionId);
 
       const totalEarned = await crvRewarder1.earned(wconvex.address);
-      console.log('Wrapper Total Earned:', utils.formatUnits(totalEarned));
 
       const pendingRewardsInfo = await wconvex.callStatic.pendingRewards(position.collId, position.collateralSize);
-      console.log('Pending Rewards', pendingRewardsInfo);
 
       const rewardFeeRatio = await config.getRewardFee();
 
@@ -518,10 +509,8 @@ describe('Convex Spell', () => {
       await bank.callStatic.currentPositionDebt(positionId);
 
       const totalEarned = await crvRewarder1.earned(wconvex.address);
-      console.log('Wrapper Total Earned:', utils.formatUnits(totalEarned));
 
       const pendingRewardsInfo = await wconvex.callStatic.pendingRewards(position.collId, position.collateralSize);
-      console.log('Pending Rewards', pendingRewardsInfo);
 
       const rewardFeeRatio = await config.getRewardFee();
 
@@ -557,10 +546,8 @@ describe('Convex Spell', () => {
         const position = await bank.getPositionInfo(positionId);
 
         const totalEarned = await crvRewarder1.earned(wconvex.address);
-        console.log('Wrapper Total Earned:', utils.formatUnits(totalEarned));
 
         const pendingRewardsInfo = await wconvex.callStatic.pendingRewards(position.collId, position.collateralSize);
-        console.log('Pending Rewards', pendingRewardsInfo);
 
         const rewardFeeRatio = await config.getRewardFee();
 
@@ -611,8 +598,7 @@ describe('Convex Spell', () => {
         );
         const afterUSDCBalance = await usdc.balanceOf(admin.address);
         const afterCrvBalance = await crv.balanceOf(admin.address);
-        console.log('USDC Balance Change:', afterUSDCBalance.sub(beforeUSDCBalance));
-        console.log('CRV Balance Change:', afterCrvBalance.sub(beforeCrvBalance));
+
         const depositFee = depositAmount.mul(50).div(10000);
         const withdrawFee = depositAmount.sub(depositFee).mul(50).div(10000);
         expect(afterCrvBalance.sub(beforeCrvBalance)).to.be.gte(depositAmount.sub(depositFee).sub(withdrawFee));

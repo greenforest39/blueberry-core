@@ -26,6 +26,8 @@ import {
 import { ADDRESS, CONTRACT_NAMES } from '../../constant';
 import { deployBTokens } from './money-market';
 import { impersonateAccount } from '.';
+import { deploySoftVaults } from './markets';
+import { faucetToken } from './paraswap';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable prefer-const */
@@ -66,25 +68,9 @@ export interface CvxProtocol {
   bank: BlueberryBank;
   convexSpell: ConvexSpell;
   convexSpellWithVolatileOracle: ConvexSpell;
-  usdcSoftVault: SoftVault;
-  crvSoftVault: SoftVault;
-  daiSoftVault: SoftVault;
-  wethSoftVault: SoftVault;
-  hardVault: HardVault;
+
   feeManager: FeeManager;
   uniV3Lib: UniV3WrappedLib;
-  bUSDC: Contract;
-  bICHI: Contract;
-  bCRV: Contract;
-  bDAI: Contract;
-  bMIM: Contract;
-  bLINK: Contract;
-  bOHM: Contract;
-  bSUSHI: Contract;
-  bBAL: Contract;
-  //bALCX: Contract;
-  bWETH: Contract;
-  bWBTC: Contract;
 }
 
 export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxProtocol> => {
@@ -106,23 +92,14 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   let convexSpell: ConvexSpell;
   let convexSpellWithVolatileOracle: ConvexSpell;
 
-  let escrowBase: PoolEscrow;
   let escrowFactory: PoolEscrowFactory;
 
   let config: ProtocolConfig;
   let feeManager: FeeManager;
   let bank: BlueberryBank;
-  let usdcSoftVault: SoftVault;
-  let crvSoftVault: SoftVault;
-  let mimSoftVault: SoftVault;
-  let daiSoftVault: SoftVault;
-  let linkSoftVault: SoftVault;
-  let wstETHSoftVault: SoftVault;
-  let wethSoftVault: SoftVault;
-  let wbtcSoftVault: SoftVault;
-  let hardVault: HardVault;
 
   let comptroller: Comptroller;
+
   let bUSDC: Contract;
   let bICHI: Contract;
   let bCRV: Contract;
@@ -136,6 +113,7 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   let bWETH: Contract;
   let bWBTC: Contract;
   let bWstETH: Contract;
+  let bTokenAdmin: Contract;
   let bCrvStEth: Contract | undefined;
   let bCrvFrxEth: Contract | undefined;
   let bCrvMim3Crv: Contract | undefined;
@@ -234,7 +212,11 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
 
   const LinkedLibFactory = await ethers.getContractFactory('UniV3WrappedLib');
   const LibInstance = await LinkedLibFactory.deploy();
-
+  await faucetToken(CRV, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(USDC, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(DAI, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(wstETH, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(WETH, utils.parseUnits('100000'), admin, 100);
   const MockOracle = await ethers.getContractFactory(CONTRACT_NAMES.MockOracle);
   mockOracle = <MockOracle>await MockOracle.deploy();
   await mockOracle.deployed();
@@ -351,21 +333,21 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   await stableOracle.registerCurveLp(ADDRESS.CRV_MIM3CRV);
   await stableOracle.registerCurveLp(ADDRESS.CRV_FRAXUSDC);
 
-  const bTokens = await deployBTokens(admin.address, oracle.address);
+  const bTokens = await deployBTokens(admin.address);
   comptroller = bTokens.comptroller;
+
   bUSDC = bTokens.bUSDC;
   bICHI = bTokens.bICHI;
   bCRV = bTokens.bCRV;
   bDAI = bTokens.bDAI;
   bMIM = bTokens.bMIM;
   bLINK = bTokens.bLINK;
-  bOHM = bTokens.bOHM;
-  bSUSHI = bTokens.bSUSHI;
   bBAL = bTokens.bBAL;
   //bALCX = bTokens.bALCX;
   bWETH = bTokens.bWETH;
   bWBTC = bTokens.bWBTC;
   bWstETH = bTokens.bWstETH;
+  bTokenAdmin = bTokens.bTokenAdmin;
 
   // Deploy Bank
   const Config = await ethers.getContractFactory('ProtocolConfig');
@@ -409,7 +391,6 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   );
 
   await wconvex.deployed();
-  console.log('Convex booster deployed');
   // Deploy CRV spell
   const ConvexSpell = await ethers.getContractFactory(CONTRACT_NAMES.ConvexSpell);
   convexSpell = <ConvexSpell>(
@@ -509,6 +490,7 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   );
   await usdcSoftVault.deployed();
   await bank.addBank(USDC, usdcSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bUSDC.address, usdcSoftVault.address);
 
   daiSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -519,6 +501,7 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   );
   await daiSoftVault.deployed();
   await bank.addBank(DAI, daiSoftVault.address, hardVault.address, 8500);
+  await bTokenAdmin._setSoftVault(bDAI.address, daiSoftVault.address);
 
   crvSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -529,6 +512,7 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   );
   await crvSoftVault.deployed();
   await bank.addBank(CRV, crvSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bCRV.address, crvSoftVault.address);
 
   mimSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -539,6 +523,7 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   );
   await mimSoftVault.deployed();
   await bank.addBank(MIM, mimSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bMIM.address, mimSoftVault.address);
 
   linkSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -549,6 +534,7 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   );
   await linkSoftVault.deployed();
   await bank.addBank(LINK, linkSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bLINK.address, linkSoftVault.address);
 
   wstETHSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -559,6 +545,7 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   );
   await wstETHSoftVault.deployed();
   await bank.addBank(WstETH, wstETHSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bWstETH.address, wstETHSoftVault.address);
 
   wethSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -569,6 +556,7 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   );
   await wethSoftVault.deployed();
   await bank.addBank(WETH, wethSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bWETH.address, wethSoftVault.address);
 
   wbtcSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -579,6 +567,7 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   );
   await wbtcSoftVault.deployed();
   await bank.addBank(WBTC, wbtcSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bWBTC.address, wbtcSoftVault.address);
 
   // Whitelist bank contract on compound
   await comptroller._setCreditLimit(bank.address, bUSDC.address, utils.parseUnits('3000000'));
@@ -604,10 +593,6 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   await weth.approve(wethSoftVault.address, ethers.constants.MaxUint256);
   await wethSoftVault.deposit(utils.parseUnits('100', 18));
 
-  console.log('CRV Balance:', utils.formatEther(await crv.balanceOf(admin.address)));
-  console.log('USDC Balance:', utils.formatUnits(await usdc.balanceOf(admin.address), 6));
-  console.log('DAI Balance:', utils.formatEther(await dai.balanceOf(admin.address)));
-
   return {
     werc20,
     wconvex,
@@ -621,23 +606,6 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
     bank,
     convexSpell,
     convexSpellWithVolatileOracle,
-    usdcSoftVault,
-    crvSoftVault,
-    daiSoftVault,
-    wethSoftVault,
-    hardVault,
     uniV3Lib: LibInstance,
-    bUSDC,
-    bICHI,
-    bCRV,
-    bDAI,
-    bMIM,
-    bLINK,
-    bOHM,
-    bSUSHI,
-    bBAL,
-    //bALCX,
-    bWETH,
-    bWBTC,
   };
 };

@@ -12,7 +12,7 @@ import {
 import { ethers } from 'hardhat';
 import { ADDRESS, CONTRACT_NAMES } from '../../../../constant';
 import { CvxProtocol, setupCvxProtocol, evm_mine_blocks, fork, revertToSnapshot, takeSnapshot } from '../../../helpers';
-import SpellABI from '../../../../abi/ConvexSpell.json';
+import SpellABI from '../../../../abi/contracts/spell/ConvexSpell.sol/ConvexSpell.json';
 import chai, { expect } from 'chai';
 import { near } from '../../../assertions/near';
 import { roughlyNear } from '../../../assertions/roughlyNear';
@@ -675,11 +675,9 @@ describe('Convex Spells Deploy', () => {
     );
 
     const bankInfo = await bank.getBankInfo(borrowToken);
-    console.log('Bank Info:', bankInfo);
 
     const pos = await bank.getPositionInfo(positionId);
-    console.log('Position Info:', pos);
-    console.log('Position Value:', await bank.callStatic.getPositionValue(positionId));
+
     expect(pos.owner).to.be.equal(admin.address);
     expect(pos.collToken).to.be.equal(wconvex.address);
     expect(pos.debtToken).to.be.equal(borrowToken);
@@ -704,10 +702,8 @@ describe('Convex Spells Deploy', () => {
     const position = await bank.getPositionInfo(positionId);
 
     const totalEarned = await crvRewarder.earned(wconvex.address);
-    console.log('Wrapper Total Earned:', utils.formatUnits(totalEarned));
 
     const pendingRewardsInfo = await wconvex.callStatic.pendingRewards(position.collId, position.collateralSize);
-    console.log('Pending Rewards', pendingRewardsInfo);
 
     const rewardFeeRatio = await config.getRewardFee();
 
@@ -763,8 +759,7 @@ describe('Convex Spells Deploy', () => {
     );
     const afterETHBalance = await admin.getBalance();
     const afterColBalance = await collTokenContract.balanceOf(admin.address);
-    console.log('ETH Balance Change:', afterETHBalance.sub(beforeETHBalance));
-    console.log('Collateral Balance Change:', afterColBalance.sub(beforeColBalance));
+
     const depositFee = depositAmount.mul(50).div(10000);
     const withdrawFee = depositAmount.sub(depositFee).mul(50).div(10000);
     expect(afterColBalance.sub(beforeColBalance)).to.be.gte(

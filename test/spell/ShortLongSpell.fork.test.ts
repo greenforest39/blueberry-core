@@ -3,7 +3,8 @@ import { BlueberryBank, MockOracle, WERC20, ERC20, ShortLongSpell, SoftVault } f
 import { ethers } from 'hardhat';
 import { ADDRESS } from '../../constant';
 import { ShortLongProtocol, evm_mine_blocks, fork, setupShortLongProtocol } from '../helpers';
-import SpellABI from '../../abi/ShortLongSpell.json';
+import SpellABI from '../../abi/contracts/spell/ShortLongSpell.sol/ShortLongSpell.json';
+
 import chai, { expect } from 'chai';
 import { near } from '../assertions/near';
 import { roughlyNear } from '../assertions/roughlyNear';
@@ -146,7 +147,6 @@ describe('ShortLong Spell mainnet fork', () => {
 
   it('should be able to farm DAI', async () => {
     const positionId = await bank.getNextPositionId();
-    console.log('Position ID:', positionId.toString());
     const beforeTreasuryBalance = await usdc.balanceOf(treasury.address);
     const swapData = await getParaswapCalldata(CRV, DAI, borrowAmount, spell.address, 100);
 
@@ -167,11 +167,9 @@ describe('ShortLong Spell mainnet fork', () => {
     );
 
     const bankInfo = await bank.getBankInfo(DAI);
-    console.log('DAI Bank Info:', bankInfo);
 
     const pos = await bank.getPositionInfo(positionId);
-    console.log('Position Info:', pos);
-    console.log('Position Value:', await bank.callStatic.getPositionValue(1));
+
     expect(pos.owner).to.be.equal(admin.address);
     expect(pos.collToken).to.be.equal(werc20.address);
     expect(pos.debtToken).to.be.equal(CRV);
@@ -186,10 +184,7 @@ describe('ShortLong Spell mainnet fork', () => {
     let pv = await bank.callStatic.getPositionValue(1);
     let ov = await bank.callStatic.getDebtValue(1);
     let cv = await bank.callStatic.getIsolatedCollateralValue(1);
-    console.log('PV:', utils.formatUnits(pv));
-    console.log('OV:', utils.formatUnits(ov));
-    console.log('CV:', utils.formatUnits(cv));
-    console.log('Prev Position Risk', utils.formatUnits(risk, 2), '%');
+
     await mockOracle.setPrice(
       [DAI, USDC],
       [
@@ -201,11 +196,6 @@ describe('ShortLong Spell mainnet fork', () => {
     pv = await bank.callStatic.getPositionValue(1);
     ov = await bank.callStatic.getDebtValue(1);
     cv = await bank.callStatic.getIsolatedCollateralValue(1);
-    console.log('=======');
-    console.log('PV:', utils.formatUnits(pv));
-    console.log('OV:', utils.formatUnits(ov));
-    console.log('CV:', utils.formatUnits(cv));
-    console.log('Position Risk', utils.formatUnits(risk, 2), '%');
   });
 
   it('should revert when opening a position for non-existing strategy', async () => {
@@ -262,12 +252,9 @@ describe('ShortLong Spell mainnet fork', () => {
     await evm_mine_blocks(10000);
     const positionId = (await bank.getNextPositionId()).sub(1);
     const position = await bank.getPositionInfo(positionId);
-    console.log('Position Info:', position);
 
     const debtAmount = await bank.callStatic.currentPositionDebt(positionId);
-    console.log('Debt Amount:', utils.formatUnits(debtAmount));
     const swapAmount = (await daiSoftVault.callStatic.withdraw(position.collateralSize)).div(2);
-    console.log('Swap Amount:', utils.formatUnits(swapAmount));
     // Manually transfer CRV rewards to spell
     await crv.transfer(spell.address, utils.parseUnits('3', 18));
 
@@ -284,7 +271,6 @@ describe('ShortLong Spell mainnet fork', () => {
     );
 
     const swapData = await getParaswapCalldata(DAI, CRV, swapAmount, spell.address, 100);
-    console.log('Swap Data:', swapData.data);
     const iface = new ethers.utils.Interface(SpellABI);
     await bank.execute(
       positionId,
@@ -306,8 +292,7 @@ describe('ShortLong Spell mainnet fork', () => {
     );
     const afterUSDCBalance = await usdc.balanceOf(admin.address);
     const afterCrvBalance = await crv.balanceOf(admin.address);
-    console.log('USDC Balance Change:', afterUSDCBalance.sub(beforeUSDCBalance));
-    console.log('CRV Balance Change:', afterCrvBalance.sub(beforeCrvBalance));
+
     const depositFee = depositAmount.mul(50).div(10000);
     const withdrawFee = depositAmount.sub(depositFee).mul(50).div(10000);
     expect(afterCrvBalance.sub(beforeCrvBalance)).to.be.gte(depositAmount.sub(depositFee).sub(withdrawFee));
@@ -407,8 +392,7 @@ describe('ShortLong Spell mainnet fork', () => {
     );
     const afterUSDCBalance = await usdc.balanceOf(admin.address);
     const afterCrvBalance = await crv.balanceOf(admin.address);
-    console.log('USDC Balance Change:', afterUSDCBalance.sub(beforeUSDCBalance));
-    console.log('CRV Balance Change:', afterCrvBalance.sub(beforeCrvBalance));
+
     const depositFee = depositAmount.mul(50).div(10000);
     const withdrawFee = depositAmount.sub(depositFee).mul(50).div(10000);
     expect(afterCrvBalance.sub(beforeCrvBalance)).to.be.gte(depositAmount.sub(depositFee).sub(withdrawFee));

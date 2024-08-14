@@ -17,6 +17,7 @@ import {
   CurveStableOracle,
   CurveVolatileOracle,
   CurveTricryptoOracle,
+  StableBPTOracle,
   WAuraBooster,
   AuraSpell,
   Comptroller,
@@ -26,6 +27,8 @@ import {
 } from '../../typechain-types';
 import { ADDRESS, CONTRACT_NAMES } from '../../constant';
 import { deployBTokens } from './money-market';
+import { deploySoftVaults } from './markets';
+import { faucetToken } from './paraswap';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable prefer-const */
@@ -41,6 +44,7 @@ const FRAX = ADDRESS.FRAX;
 const CRV = ADDRESS.CRV;
 const AURA = ADDRESS.AURA;
 const BAL = ADDRESS.BAL;
+const WSTETH = ADDRESS.wstETH;
 const ETH_PRICE = 1600;
 
 export interface AuraProtocol {
@@ -55,10 +59,6 @@ export interface AuraProtocol {
   bank: BlueberryBank;
   auraSpell: AuraSpell;
   auraBooster: IAuraBooster;
-  usdcSoftVault: SoftVault;
-  crvSoftVault: SoftVault;
-  daiSoftVault: SoftVault;
-  hardVault: HardVault;
   feeManager: FeeManager;
   uniV3Lib: UniV3WrappedLib;
   bUSDC: Contract;
@@ -67,7 +67,8 @@ export interface AuraProtocol {
   bDAI: Contract;
   bMIM: Contract;
   bLINK: Contract;
-  bSUSHI: Contract;
+
+
   bBAL: Contract;
   //bALCX: Contract;
   bWETH: Contract;
@@ -115,16 +116,17 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
   //let bALCX: Contract;
   let bWETH: Contract;
   let bWBTC: Contract;
+  let bTokenAdmin: Contract;
 
   [admin, alice, treasury] = await ethers.getSigners();
   usdc = <ERC20>await ethers.getContractAt('ERC20', USDC);
   dai = <ERC20>await ethers.getContractAt('ERC20', DAI);
   crv = <ERC20>await ethers.getContractAt('ERC20', CRV);
   weth = <IWETH>await ethers.getContractAt(CONTRACT_NAMES.IWETH, WETH);
-
+  console.log('Deployed WETH');
   // Prepare USDC
-  // deposit 80 eth -> 80 WETH
-  await weth.deposit({ value: utils.parseUnits('100') });
+  // deposit 1000 eth -> 1000 WETH
+  await weth.deposit({ value: utils.parseUnits('1000') });
 
   // swap 40 WETH -> USDC, 40 WETH -> DAI
   await weth.approve(ADDRESS.UNI_V2_ROUTER, ethers.constants.MaxUint256);
@@ -132,26 +134,33 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
     await ethers.getContractAt(CONTRACT_NAMES.IUniswapV2Router02, ADDRESS.UNI_V2_ROUTER)
   );
   await uniV2Router.swapExactTokensForTokens(
-    utils.parseUnits('30'),
+    utils.parseUnits('100'),
     0,
     [WETH, USDC],
     admin.address,
     ethers.constants.MaxUint256
   );
   await uniV2Router.swapExactTokensForTokens(
-    utils.parseUnits('30'),
+    utils.parseUnits('100'),
     0,
     [WETH, DAI],
     admin.address,
     ethers.constants.MaxUint256
   );
+  
+  await faucetToken(CRV, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(USDC, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(DAI, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(WSTETH, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(WETH, utils.parseUnits('100000'), admin, 100);
+
   // Swap 40 weth -> crv
   await weth.approve(ADDRESS.SUSHI_ROUTER, ethers.constants.MaxUint256);
   const sushiRouter = <IUniswapV2Router02>(
     await ethers.getContractAt(CONTRACT_NAMES.IUniswapV2Router02, ADDRESS.SUSHI_ROUTER)
   );
   await sushiRouter.swapExactTokensForTokens(
-    utils.parseUnits('40'),
+    utils.parseUnits('100'),
     0,
     [WETH, CRV],
     admin.address,
@@ -161,7 +170,7 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
   await crv.approve(ADDRESS.SUSHI_ROUTER, 0);
   await crv.approve(ADDRESS.SUSHI_ROUTER, ethers.constants.MaxUint256);
   await sushiRouter.swapExactTokensForTokens(
-    utils.parseUnits('10'),
+    utils.parseUnits('100'),
     0,
     [CRV, WETH, USDC],
     admin.address,
@@ -174,9 +183,11 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
   const MockOracle = await ethers.getContractFactory(CONTRACT_NAMES.MockOracle);
   mockOracle = <MockOracle>await MockOracle.deploy();
   await mockOracle.deployed();
+
   await mockOracle.setPrice(
-    [WETH, USDC, CRV, DAI, USDT, FRAX, AURA, BAL, ADDRESS.BAL_UDU],
+    [WETH, WSTETH, USDC, CRV, DAI, USDT, FRAX, AURA, BAL, ADDRESS.BAL_UDU],
     [
+      BigNumber.from(10).pow(18).mul(ETH_PRICE),
       BigNumber.from(10).pow(18).mul(ETH_PRICE),
       BigNumber.from(10).pow(18), // $1
       BigNumber.from(10).pow(18), // $1
@@ -188,7 +199,7 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
       BigNumber.from(10).pow(18), // $1
     ]
   );
-
+  console.log('Price Set');
   const CurveStableOracleFactory = await ethers.getContractFactory(CONTRACT_NAMES.CurveStableOracle);
   stableOracle = <CurveStableOracle>(
     await upgrades.deployProxy(
@@ -227,8 +238,9 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
   await oracle.deployed();
 
   await oracle.setRoutes(
-    [WETH, USDC, CRV, DAI, USDT, FRAX, AURA, BAL, ADDRESS.BAL_UDU],
+    [WETH, USDC, CRV, DAI, USDT, FRAX, AURA, BAL, ADDRESS.BAL_UDU, WSTETH],
     [
+      mockOracle.address,
       mockOracle.address,
       mockOracle.address,
       mockOracle.address,
@@ -241,7 +253,7 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
     ]
   );
 
-  const bTokens = await deployBTokens(admin.address, oracle.address);
+  const bTokens = await deployBTokens(admin.address);
   comptroller = bTokens.comptroller;
   bUSDC = bTokens.bUSDC;
   bICHI = bTokens.bICHI;
@@ -249,11 +261,11 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
   bDAI = bTokens.bDAI;
   bMIM = bTokens.bMIM;
   bLINK = bTokens.bLINK;
-  bSUSHI = bTokens.bSUSHI;
   bBAL = bTokens.bBAL;
   //bALCX = bTokens.bALCX;
   bWETH = bTokens.bWETH;
   bWBTC = bTokens.bWBTC;
+  bTokenAdmin = bTokens.bTokenAdmin;
 
   // Deploy Bank
   const Config = await ethers.getContractFactory('ProtocolConfig');
@@ -312,17 +324,18 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
 
   const auraBooster = <IAuraBooster>await ethers.getContractAt('IAuraBooster', ADDRESS.AURA_BOOSTER);
 
-  // await curveSpell.setSwapRouter(ADDRESS.SUSHI_ROUTER);
-  await auraSpell.addStrategy(ADDRESS.BAL_UDU, utils.parseUnits('100', 18), utils.parseUnits('2000', 18));
-  await auraSpell.addStrategy(ADDRESS.BAL_AURA_STABLE, utils.parseUnits('100', 18), utils.parseUnits('2000', 18));
+  await auraSpell.addStrategy(ADDRESS.BAL_UDU, utils.parseUnits('10', 18), utils.parseUnits('20000', 18));
+  await auraSpell.addStrategy(ADDRESS.BAL_AURA_STABLE, utils.parseUnits('10', 18), utils.parseUnits('20000', 18));
+  await auraSpell.addStrategy(ADDRESS.BAL_WSTETH_WETH, utils.parseUnits('10', 18), utils.parseUnits('20000', 18));
   await auraSpell.setCollateralsMaxLTVs(0, [USDC, CRV, DAI], [30000, 30000, 30000]);
   await auraSpell.setCollateralsMaxLTVs(1, [USDC, CRV, DAI], [30000, 30000, 30000]);
+  await auraSpell.setCollateralsMaxLTVs(2, [USDC, CRV, DAI], [30000, 30000, 30000]);
 
   // Setup Bank
   await bank.whitelistSpells([auraSpell.address], [true]);
-  await bank.whitelistTokens([USDC, DAI, CRV], [true, true, true]);
+  await bank.whitelistTokens([USDC, DAI, CRV, WSTETH], [true, true, true, true]);
   await bank.whitelistERC1155([werc20.address, waura.address], true);
-  console.log('Bank address:', bank.address);
+
   const HardVault = await ethers.getContractFactory(CONTRACT_NAMES.HardVault);
   hardVault = <HardVault>await upgrades.deployProxy(HardVault, [config.address, admin.address], {
     unsafeAllow: ['delegatecall'],
@@ -338,6 +351,7 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
   );
   await usdcSoftVault.deployed();
   await bank.addBank(USDC, usdcSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bUSDC.address, usdcSoftVault.address);
 
   daiSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -348,6 +362,7 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
   );
   await daiSoftVault.deployed();
   await bank.addBank(DAI, daiSoftVault.address, hardVault.address, 8500);
+  await bTokenAdmin._setSoftVault(bDAI.address, daiSoftVault.address);
 
   crvSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -358,6 +373,7 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
   );
   await crvSoftVault.deployed();
   await bank.addBank(CRV, crvSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bCRV.address, crvSoftVault.address);
 
   // Whitelist bank contract on compound
   await comptroller._setCreditLimit(bank.address, bUSDC.address, utils.parseUnits('3000000'));
@@ -376,10 +392,7 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
   await dai.transfer(alice.address, utils.parseUnits('500', 18));
   await daiSoftVault.deposit(utils.parseUnits('5000', 18));
 
-  console.log('CRV Balance:', utils.formatEther(await crv.balanceOf(admin.address)));
-  console.log('USDC Balance:', utils.formatUnits(await usdc.balanceOf(admin.address), 6));
-  console.log('DAI Balance:', utils.formatEther(await dai.balanceOf(admin.address)));
-
+  await deploySoftVaults(config, bank, comptroller, bTokens.bTokens, admin, alice);
   return {
     werc20,
     waura,
@@ -393,21 +406,6 @@ export const setupAuraProtocol = async (): Promise<AuraProtocol> => {
     bank,
     auraSpell,
     auraBooster,
-    usdcSoftVault,
-    crvSoftVault,
-    daiSoftVault,
-    hardVault,
     uniV3Lib: LibInstance,
-    bUSDC,
-    bICHI,
-    bCRV,
-    bDAI,
-    bMIM,
-    bLINK,
-    bSUSHI,
-    bBAL,
-    //bALCX,
-    bWETH,
-    bWBTC,
   };
 };

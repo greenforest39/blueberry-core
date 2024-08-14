@@ -10,7 +10,8 @@ import {
   revertToSnapshot,
   takeSnapshot,
 } from '../../../helpers';
-import SpellABI from '../../../../abi/ShortLongSpell.json';
+import SpellABI from '../../../../abi/contracts/spell/ShortLongSpell.sol/ShortLongSpell.json';
+
 import chai, { expect } from 'chai';
 import { near } from '../../../assertions/near';
 import { roughlyNear } from '../../../assertions/roughlyNear';
@@ -78,7 +79,6 @@ describe('ShortLong Spell Test test', () => {
 
   it('should be able to long DAI + earn wstETH (collateral: WBTC, borrowToken: DAI)', async () => {
     snapshotId = await takeSnapshot();
-    console.log('Snapshot ID:', snapshotId);
     await testFarm(4, WBTC, DAI, WstETH, utils.parseUnits('0.1', 8), utils.parseUnits('100', 18), 0, wbtc);
   });
 
@@ -474,11 +474,9 @@ describe('ShortLong Spell Test test', () => {
     );
 
     const bankInfo = await bank.getBankInfo(DAI);
-    console.log('DAI Bank Info:', bankInfo);
 
     const pos = await bank.getPositionInfo(positionId);
-    console.log('Position Info:', pos);
-    console.log('Position Value:', await bank.callStatic.getPositionValue(positionId));
+
     expect(pos.owner).to.be.equal(admin.address);
     expect(pos.collToken).to.be.equal(werc20.address);
     expect(pos.debtToken).to.be.equal(borrowToken);
@@ -537,7 +535,6 @@ describe('ShortLong Spell Test test', () => {
       ])
     );
     const afterColBalance = await collTokenContract.balanceOf(admin.address);
-    console.log('Col Token Balance Change:', afterColBalance.sub(beforeColBalance));
     const depositFee = depositAmount.mul(50).div(10000);
     const withdrawFee = depositAmount.sub(depositFee).mul(50).div(10000);
     expect(afterColBalance.sub(beforeColBalance)).to.be.gte(

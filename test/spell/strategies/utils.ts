@@ -18,6 +18,7 @@ import { ADDRESS, CONTRACT_NAMES } from '../../../constant';
 import { deployBTokens } from '../../helpers/money-market';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { faucetToken } from '../../helpers/paraswap';
+import { deploySoftVaults } from '../../helpers/markets';
 
 const OneDay = 86400;
 // Use Two days time gap for chainlink, because we may increase timestamp manually to test reward amount
@@ -97,7 +98,6 @@ export const setupOracles = async (): Promise<CoreOracle> => {
       ADDRESS.CHAINLINK_MIM_USD_FEED,
     ]
   );
-  console.log('chainlink oracle setup');
   const CoreOracle = await ethers.getContractFactory(CONTRACT_NAMES.CoreOracle);
   const oracle = <CoreOracle>await upgrades.deployProxy(CoreOracle, [admin.address], { unsafeAllow: ['delegatecall'] });
 
@@ -201,7 +201,7 @@ export const setupVaults = async (
   signer: SignerWithAddress
 ): Promise<Vaults> => {
   const [admin] = await ethers.getSigners();
-  const bTokens = await deployBTokens(signer.address, oracle.address);
+  const bTokens = await deployBTokens(signer.address);
 
   const HardVault = await ethers.getContractFactory(CONTRACT_NAMES.HardVault);
   const hardVault = <HardVault>await upgrades.deployProxy(HardVault, [config.address, admin.address], {
@@ -216,15 +216,16 @@ export const setupVaults = async (
 
   for (const key of Object.keys(bTokens)) {
     if (key === 'comptroller') continue;
-    if (key === 'extraBTokens') continue;
+    if (key === 'bTokenAdmin') continue;
     const bToken = (bTokens as any)[key] as any as BErc20Delegator;
+
     const softVault = <SoftVault>(
       await upgrades.deployProxy(
         SoftVault,
         [
           config.address,
           bToken.address,
-          `Interest Bearing ${(await bToken.name()).split(' ')[1]}`,
+          `Interest Bearing ${await bToken.symbol()}`,
           `i${await bToken.symbol()}`,
           admin.address,
         ],
@@ -235,13 +236,13 @@ export const setupVaults = async (
     softVaults.push(softVault);
     bTokenList.push(bToken);
 
+    await bTokens.bTokenAdmin._setSoftVault(bToken.address, softVault.address);
     await bTokens.comptroller._setCreditLimit(bank.address, bToken.address, utils.parseEther('3000000'));
 
     const underlyingToken = <ERC20>await ethers.getContractAt('ERC20', await bToken.underlying());
     tokens.push(underlyingToken);
 
     const amount = await faucetToken(underlyingToken.address, utils.parseEther('20'), signer, 100);
-
     if (amount == 0) {
       tokens.pop();
       softVaults.pop();
@@ -250,8 +251,7 @@ export const setupVaults = async (
     }
 
     await underlyingToken.connect(signer).approve(softVault.address, ethers.constants.MaxUint256);
-
-    await softVault.connect(signer).deposit(amount);
+    await softVault.deposit(amount);
   }
   return {
     hardVault,

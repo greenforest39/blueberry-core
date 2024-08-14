@@ -108,8 +108,14 @@ error INCORRECT_LIMITS();
 /// @notice Thrown when Curve LP is already registered.
 error CRV_LP_ALREADY_REGISTERED(address lp);
 
+/// @notice Thrown when a token and Balancer LP is already registered.
+error TOKEN_BPT_ALREADY_REGISTERED(address token, address bpt);
+
 /// @notice Thrown when a pool is subject to read-only reentrancy manipulation.
 error REENTRANCY_RISK(address pool);
+
+/// @notice Thrown when the incorrect duration is provided when registering a market.
+error INCORRECT_DURATION(uint32 duration);
 
 /*//////////////////////////////////////////////////////////////////////////
                             GENERAL SPELL ERRORS
