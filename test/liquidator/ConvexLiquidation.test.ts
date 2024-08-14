@@ -3,7 +3,8 @@ import { BlueberryBank, MockOracle, ERC20, ConvexSpell, ConvexLiquidator } from 
 import { ethers, upgrades } from 'hardhat';
 import { ADDRESS, CONTRACT_NAMES } from '../../constant';
 import { CvxProtocol, setupCvxProtocol, evm_mine_blocks, fork, evm_increaseTime } from '../helpers';
-import SpellABI from '../../abi/ConvexSpell.json';
+import SpellABI from '../../abi/contracts/spell/ConvexSpell.sol/ConvexSpell.json';
+
 import chai, { expect } from 'chai';
 import { near } from '../assertions/near';
 import { roughlyNear } from '../assertions/roughlyNear';
@@ -27,6 +28,7 @@ describe('Convex Liquidator', () => {
   let admin: SignerWithAddress;
   let alice: SignerWithAddress;
   let treasury: SignerWithAddress;
+  let emergengyFund: SignerWithAddress;
 
   let usdc: ERC20;
   let mockOracle: MockOracle;
@@ -39,7 +41,7 @@ describe('Convex Liquidator', () => {
 
   before(async () => {
     await fork(1);
-    [admin, alice, treasury] = await ethers.getSigners();
+    [admin, alice, treasury, emergengyFund] = await ethers.getSigners();
     usdc = <ERC20>await ethers.getContractAt('ERC20', USDC);
     dai = <ERC20>await ethers.getContractAt('ERC20', DAI);
     usdc = <ERC20>await ethers.getContractAt('ERC20', USDC);
@@ -51,7 +53,7 @@ describe('Convex Liquidator', () => {
     mockOracle = protocol.mockOracle;
     const iface = new ethers.utils.Interface(SpellABI);
 
-    const depositAmount = utils.parseUnits('100', 18); // CRV => $100
+    const depositAmount = utils.parseUnits('110', 18); // CRV => $100
     const borrowAmount = utils.parseUnits('250', 6); // USDC
     await usdc.approve(bank.address, ethers.constants.MaxUint256);
     await dai.approve(bank.address, ethers.constants.MaxUint256);
@@ -79,6 +81,7 @@ describe('Convex Liquidator', () => {
       [
         bank.address,
         treasury.address,
+        emergengyFund.address,
         POOL_ADDRESSES_PROVIDER,
         spell.address,
         BALANCER_VAULT,

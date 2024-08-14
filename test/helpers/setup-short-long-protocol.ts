@@ -128,6 +128,7 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
   let bWETH: Contract;
   let bWBTC: Contract;
   let bWstETH: Contract;
+  let bTokenAdmin: Contract;
 
   const initialDeposit = utils.parseUnits('200');
   const initialSwapAmount = utils.parseUnits('10');
@@ -314,7 +315,7 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
     ]
   );
 
-  const bTokens = await deployBTokens(admin.address, oracle.address);
+  const bTokens = await deployBTokens(admin.address);
   comptroller = bTokens.comptroller;
   bUSDC = bTokens.bUSDC;
   bICHI = bTokens.bICHI;
@@ -327,6 +328,7 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
   bWETH = bTokens.bWETH;
   bWBTC = bTokens.bWBTC;
   bWstETH = bTokens.bWstETH;
+  bTokenAdmin = bTokens.bTokenAdmin;
 
   // Deploy Bank
   const Config = await ethers.getContractFactory('ProtocolConfig');
@@ -373,6 +375,7 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
     }
   );
   await usdcSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bUSDC.address, usdcSoftVault.address);
 
   daiSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -382,6 +385,7 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
     }
   );
   await daiSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bDAI.address, daiSoftVault.address);
 
   crvSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -391,6 +395,7 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
     }
   );
   await crvSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bCRV.address, crvSoftVault.address);
 
   linkSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -400,6 +405,7 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
     }
   );
   await linkSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bLINK.address, linkSoftVault.address);
 
   wbtcSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -409,6 +415,7 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
     }
   );
   await wbtcSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bWBTC.address, wbtcSoftVault.address);
 
   wethSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -418,6 +425,7 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
     }
   );
   await wethSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bWETH.address, wethSoftVault.address);
 
   wstETHSoftVault = <SoftVault>await upgrades.deployProxy(
     SoftVault,
@@ -427,6 +435,7 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
     }
   );
   await wstETHSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bWstETH.address, wstETHSoftVault.address);
 
   await softVaultOracle.registerSoftVault(daiSoftVault.address);
   await softVaultOracle.registerSoftVault(wbtcSoftVault.address);

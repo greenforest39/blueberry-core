@@ -5,15 +5,14 @@ import {
   WERC20,
   ERC20,
   WAuraBooster,
-  IAuraBooster,
-  IRewarder,
   AuraSpell,
   ProtocolConfig,
 } from '../../typechain-types';
 import { ethers, upgrades } from 'hardhat';
 import { ADDRESS, CONTRACT_NAMES } from '../../constant';
 import { AuraProtocol, evm_mine_blocks, setupAuraProtocol } from '../helpers';
-import SpellABI from '../../abi/AuraSpell.json';
+import SpellABI from '../../abi/contracts/spell/AuraSpell.sol/AuraSpell.json';
+
 import chai, { expect } from 'chai';
 import { near } from '../assertions/near';
 import { roughlyNear } from '../assertions/roughlyNear';
@@ -48,8 +47,6 @@ describe('Aura Spell', () => {
   let waura: WAuraBooster;
   let bank: BlueberryBank;
   let protocol: AuraProtocol;
-  let auraBooster: IAuraBooster;
-  let auraRewarder: IRewarder;
   let config: ProtocolConfig;
 
   before(async () => {
@@ -61,9 +58,6 @@ describe('Aura Spell', () => {
     aura = <ERC20>await ethers.getContractAt('ERC20', AURA);
     bal = <ERC20>await ethers.getContractAt('ERC20', BAL);
     usdc = <ERC20>await ethers.getContractAt('ERC20', USDC);
-    auraBooster = <IAuraBooster>await ethers.getContractAt('IAuraBooster', ADDRESS.AURA_BOOSTER);
-    const poolInfo = await auraBooster.poolInfo(ADDRESS.AURA_UDU_POOL_ID);
-    auraRewarder = <IRewarder>await ethers.getContractAt('IRewarder', poolInfo.crvRewards);
 
     protocol = await setupAuraProtocol();
     bank = protocol.bank;
@@ -162,7 +156,7 @@ describe('Aura Spell', () => {
   });
 
   describe('Aura Pool Farming Position', () => {
-    const depositAmount = utils.parseUnits('100', 18); // CRV => $100
+    const depositAmount = utils.parseUnits('110', 18); // CRV => $110
     const borrowAmount = utils.parseUnits('250', 6); // USDC
     const iface = new ethers.utils.Interface(SpellABI);
 
@@ -426,10 +420,6 @@ describe('Aura Spell', () => {
       const positionId = (await bank.getNextPositionId()).sub(1);
       const position = await bank.getPositionInfo(positionId);
 
-      const debtAmount = await bank.callStatic.currentPositionDebt(positionId);
-
-      const totalEarned = await auraRewarder.earned(waura.address);
-
       const pendingRewardsInfo = await waura.callStatic.pendingRewards(position.collId, position.collateralSize);
 
       const rewardFeeRatio = await config.getRewardFee();
@@ -465,9 +455,9 @@ describe('Aura Spell', () => {
               strategyId: 0,
               collToken: CRV,
               borrowToken: USDC,
-              amountRepay: debtAmount.div(2),
+              amountRepay: 0,
               amountPosRemove: position.collateralSize.div(2),
-              amountShareWithdraw: position.underlyingVaultShare.div(2),
+              amountShareWithdraw: 0,
               amountOutMin: 1,
               amountToSwap,
               swapData,
@@ -484,7 +474,6 @@ describe('Aura Spell', () => {
       const positionId = (await bank.getNextPositionId()).sub(1);
       const position = await bank.getPositionInfo(positionId);
 
-      const totalEarned = await auraRewarder.earned(waura.address);
 
       const pendingRewardsInfo = await waura.callStatic.pendingRewards(position.collId, position.collateralSize);
 
@@ -505,17 +494,14 @@ describe('Aura Spell', () => {
           }
         })
       );
-
       // Manually transfer CRV rewards to spell
       //await usdc.transfer(spell.address, utils.parseUnits("10", 6))
       const amountToSwap = utils.parseUnits('30', 18);
       const swapData = (await getParaswapCalldata(CRV, USDC, amountToSwap, spell.address, 100)).data;
 
       const beforeTreasuryBalance = await crv.balanceOf(treasury.address);
-      const beforeUSDCBalance = await usdc.balanceOf(admin.address);
       const beforeCrvBalance = await crv.balanceOf(admin.address);
 
-      const iface = new ethers.utils.Interface(SpellABI);
       await bank.execute(
         positionId,
         spell.address,
@@ -535,7 +521,6 @@ describe('Aura Spell', () => {
           swapDatas.map((item) => item.data),
         ])
       );
-      const afterUSDCBalance = await usdc.balanceOf(admin.address);
       const afterCrvBalance = await crv.balanceOf(admin.address);
 
       const depositFee = depositAmount.mul(50).div(10000);

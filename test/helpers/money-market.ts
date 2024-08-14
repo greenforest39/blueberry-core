@@ -120,7 +120,7 @@ async function deployWrapped(
   return bWrappedNativeDelegator;
 }
 
-export async function deployBTokens(admin: string, baseOracle: string) {
+export async function deployBTokens(admin: string) {
   const unitroller = await deployUnitroller();
   const comptroller = await deployComptroller();
   const bTokenAdmin = await deployBTokenAdmin(admin);
@@ -135,12 +135,21 @@ export async function deployBTokens(admin: string, baseOracle: string) {
   await comptroller._setLiquidationIncentive(liquidiationIncentive);
   await comptroller._setGuardian(admin);
 
-  const OracleProxy = await ethers.getContractFactory('PriceOracleProxy');
-  // Blueberry core oracle address
-  const oracle = await OracleProxy.deploy(baseOracle);
-  await oracle.deployed();
+  const PriceOracle = await ethers.getContractFactory(
+    'contracts/money-market/PriceOracle/v1PriceOracle.sol:PriceOracle'
+  );
+  const v1priceOracle = await PriceOracle.deploy(admin);
+  await v1priceOracle.deployed();
 
-  await comptroller._setPriceOracle(oracle.address);
+  const PriceOracleProxyUSD = await ethers.getContractFactory('PriceOracleProxyUSD');
+  const priceOracleProxyUSD = await PriceOracleProxyUSD.deploy(
+    admin,
+    v1priceOracle.address,
+    ADDRESS.CHAINLINK_ETH_USD_FEED
+  );
+  await priceOracleProxyUSD.deployed();
+
+  await comptroller._setPriceOracle(priceOracleProxyUSD.address);
 
   let baseRate = 0;
   let multiplier = utils.parseEther('0.2');
@@ -222,16 +231,6 @@ export async function deployBTokens(admin: string, baseOracle: string) {
     bTokenAdmin.address
   );
 
-  const bSUSHI = await deployBToken(
-    ADDRESS.SUSHI,
-    comptroller.address,
-    IRM.address, // IRM.address,
-    'Blueberry SUSHI',
-    'bSUSHI',
-    8,
-    bTokenAdmin.address
-  );
-
   const bBAL = await deployBToken(
     ADDRESS.BAL,
     comptroller.address,
@@ -296,6 +295,7 @@ export async function deployBTokens(admin: string, baseOracle: string) {
     bTokenAdmin.address
   );
 
+
   // const bCrvStEth = await deployBToken(
   //   ADDRESS.CRV_STETH,
   //   comptroller.address,
@@ -343,18 +343,43 @@ export async function deployBTokens(admin: string, baseOracle: string) {
   await comptroller._supportMarket(bMIM.address, 0);
   await comptroller._supportMarket(bLINK.address, 0);
   await comptroller._supportMarket(bOHM.address, 0);
-  await comptroller._supportMarket(bSUSHI.address, 0);
   await comptroller._supportMarket(bBAL.address, 0);
   //await comptroller._supportMarket(bALCX.address, 0);
   await comptroller._supportMarket(bWETH.address, 0);
   await comptroller._supportMarket(bWBTC.address, 0);
   await comptroller._supportMarket(bWstETH.address, 0);
-  //await comptroller._supportMarket(bCrvStEth.address, 0);
-  // await comptroller._supportMarket(bCrvFrxEth.address, 0);
-  // await comptroller._supportMarket(bCrvMim3Crv.address, 0);
-  // await comptroller._supportMarket(bCrvCvxCrv.address, 0);
 
+  priceOracleProxyUSD._setAggregators(
+    [
+      bUSDC.address,
+      bCRV.address,
+      bDAI.address,
+      bMIM.address,
+      bLINK.address,
+      bOHM.address,
+      bBAL.address,
+      bWETH.address,
+      bWBTC.address,
+      bWstETH.address,
+    ],
+    [
+      ADDRESS.CHAINLINK_USDC_USD_FEED,
+      ADDRESS.CHAINLINK_CRV_USD_FEED,
+      ADDRESS.CHAINLINK_DAI_USD_FEED,
+      ADDRESS.CHAINLINK_MIM_USD_FEED,
+      ADDRESS.CHAINLINK_LINK_USD_FEED,
+      ADDRESS.CHAINLINK_OHM_ETH_FEED,
+      ADDRESS.CHAINLINK_BAL_USD_FEED,
+      ADDRESS.CHAINLINK_ETH_USD_FEED,
+      ADDRESS.CHAINLINK_BTC_USD_FEED,
+      ADDRESS.CHAINLINK_STETH_USD_FEED,
+    ],
+    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
+  );
+
+  console.log('bOHM price', await priceOracleProxyUSD.getUnderlyingPrice(bOHM.address));
   return {
+    bTokenAdmin,
     comptroller,
     bUSDC,
     bICHI,
@@ -362,16 +387,10 @@ export async function deployBTokens(admin: string, baseOracle: string) {
     bDAI,
     bMIM,
     bLINK,
-    // bOHM,
-    // bSUSHI,
+    bOHM,
     bBAL,
-    //bALCX,
     bWETH,
     bWBTC,
     bWstETH,
-    // //bCrvStEth,
-    // bCrvFrxEth,
-    // bCrvMim3Crv,
-    // bCrvCvxCrv,
   };
 }
