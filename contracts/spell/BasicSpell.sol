@@ -9,6 +9,7 @@
 */
 
 pragma solidity 0.8.22;
+import "hardhat/console.sol";
 
 /* solhint-disable max-line-length */
 import { IERC20MetadataUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
@@ -267,7 +268,6 @@ abstract contract BasicSpell is IBasicSpell, ERC1155NaiveReceiver, Ownable2StepU
      */
     function _validateMaxLTV(uint256 strategyId) internal view {
         IBank bank = getBank();
-
         uint256 positionId = bank.POSITION_ID();
         IBank.Position memory pos = bank.getPositionInfo(positionId);
         uint256 debtValue = bank.getDebtValue(positionId);
@@ -302,7 +302,9 @@ abstract contract BasicSpell is IBasicSpell, ERC1155NaiveReceiver, Ownable2StepU
         console.log("lpPrice: %s", lpPrice);
         console.log("lpBalance: %s", lpBalance);
         addedPosSize = (lpPrice * lpBalance) / 10 ** IERC20MetadataUpgradeable(address(lpToken)).decimals();
+
         console.log("position size: %s", addedPosSize);
+
         // Check if position size is within bounds
         if (prevPosSize + addedPosSize > strategy.maxPositionSize) {
             revert Errors.EXCEED_MAX_POS_SIZE(strategyId);
@@ -446,7 +448,7 @@ abstract contract BasicSpell is IBasicSpell, ERC1155NaiveReceiver, Ownable2StepU
      * @param token Address of the collateral token to be deposited.
      * @param amount Amount of collateral tokens to deposit.
      */
-    function _doPutCollateral(address token, uint256 amount) internal {
+    function _doPutCollateral(address token, uint256 amount) internal virtual {
         if (amount > 0) {
             IWERC20 werc20 = getWrappedERC20();
             IERC20(token).universalApprove(address(werc20), amount);
@@ -462,7 +464,7 @@ abstract contract BasicSpell is IBasicSpell, ERC1155NaiveReceiver, Ownable2StepU
      * @param token Address of the collateral token to be withdrawn.
      * @param amount Amount of collateral tokens to withdraw.
      */
-    function _doTakeCollateral(address token, uint256 amount) internal {
+    function _doTakeCollateral(address token, uint256 amount) internal virtual {
         if (amount > 0) {
             amount = _bank.takeCollateral(amount);
             _werc20.burn(token, amount);

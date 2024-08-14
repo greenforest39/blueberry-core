@@ -299,6 +299,17 @@ async function deployWrapped(
   );
 
 
+  const bApxETH = await deployBToken(
+    ADDRESS.apxETH,
+    comptroller.address,
+    IRM.address,
+    'Blueberry ApxETH',
+    'bApxETH',
+    8,
+    bTokenAdmin.address
+  );
+  console.log('bApxETH deployed at: ', bApxETH.address);
+
   // const bCrvStEth = await deployBToken(
   //   ADDRESS.CRV_STETH,
   //   comptroller.address,
@@ -344,6 +355,8 @@ async function deployWrapped(
   await comptroller._supportMarket(bWBTC.address, 0);
   await comptroller._supportMarket(bWstETH.address, 0);
 
+
+
   priceOracleProxyUSD._setAggregators(
     [
       bUSDC.address,
@@ -387,5 +400,6 @@ async function deployWrapped(
     bWETH,
     bWBTC,
     bWstETH,
+
   };
 }
