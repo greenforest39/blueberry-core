@@ -95,7 +95,6 @@ describe('ShortLong Liquidator', () => {
   });
 
   it('should be able to liquidate the position => (OV - PV)/CV = LT', async () => {
-    console.log('===CRV token jumps to $63===');
     await mockOracle.setPrice(
       [CRV],
       [

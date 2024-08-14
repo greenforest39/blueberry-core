@@ -268,11 +268,8 @@ describe('Aura Spell', () => {
       await res.wait();
 
       const bankInfo = await bank.getBankInfo(USDC);
-      console.log('USDC Bank Info:', bankInfo);
 
       const pos = await bank.getPositionInfo(positionId);
-      console.log('Position Info:', pos);
-      console.log('Position Value:', await bank.callStatic.getPositionValue(1));
 
       expect(pos.owner).to.be.equal(admin.address);
       expect(pos.collToken).to.be.equal(waura.address);
@@ -328,10 +325,7 @@ describe('Aura Spell', () => {
       let pv = await bank.callStatic.getPositionValue(1);
       let ov = await bank.callStatic.getDebtValue(1);
       let cv = await bank.callStatic.getIsolatedCollateralValue(1);
-      console.log('PV:', utils.formatUnits(pv));
-      console.log('OV:', utils.formatUnits(ov));
-      console.log('CV:', utils.formatUnits(cv));
-      console.log('Prev Position Risk', utils.formatUnits(risk, 2), '%');
+
       await mockOracle.setPrice(
         [USDC, CRV],
         [
@@ -446,8 +440,6 @@ describe('Aura Spell', () => {
         })
       );
 
-      console.log('Pending Rewards', pendingRewardsInfo);
-
       // Manually transfer CRV rewards to spell
       //await usdc.transfer(spell.address, utils.parseUnits("10", 6));
       const amountToSwap = utils.parseUnits('30', 18);
@@ -481,7 +473,7 @@ describe('Aura Spell', () => {
       await evm_mine_blocks(1000);
       const positionId = (await bank.getNextPositionId()).sub(1);
       const position = await bank.getPositionInfo(positionId);
-      const iface = new ethers.utils.Interface(SpellABI);
+
 
       const pendingRewardsInfo = await waura.callStatic.pendingRewards(position.collId, position.collateralSize);
 

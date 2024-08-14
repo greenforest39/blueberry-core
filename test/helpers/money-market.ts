@@ -8,7 +8,6 @@ async function deployUnitroller() {
   const unitroller = await Unitroller.deploy();
 
   await unitroller.deployed();
-  console.log('Unitroller deployed at: ', unitroller.address);
 
   return unitroller;
 }
@@ -18,7 +17,6 @@ async function deployComptroller() {
   const comptroller = await Comptroller.deploy();
 
   await comptroller.deployed();
-  console.log('Comptroller deployed at: ', comptroller.address);
 
   return comptroller;
 }
@@ -27,7 +25,6 @@ async function deployBTokenAdmin(admin: string) {
   const BTokenAdmin = await ethers.getContractFactory('BTokenAdmin');
   const bTokenAdmin = await BTokenAdmin.deploy(admin);
   await bTokenAdmin.deployed();
-  console.log('BTokenAdmin deployed at: ', bTokenAdmin.address);
   return bTokenAdmin;
 }
 
@@ -171,7 +168,6 @@ export async function deployBTokens(admin: string) {
     8,
     bTokenAdmin.address
   );
-  console.log('bUSDC deployed at: ', bUSDC.address);
 
   // Deploy ICHI Token
   const bICHI = await deployBToken(
@@ -183,7 +179,6 @@ export async function deployBTokens(admin: string) {
     8,
     bTokenAdmin.address
   );
-  console.log('bICHI deployed at: ', bICHI.address);
 
   // Deploy CRV
   const bCRV = await deployBToken(
@@ -195,7 +190,6 @@ export async function deployBTokens(admin: string) {
     8,
     bTokenAdmin.address
   );
-  console.log('bCRV deployed at: ', bCRV.address);
 
   const bDAI = await deployBToken(
     ADDRESS.DAI,
@@ -206,7 +200,6 @@ export async function deployBTokens(admin: string) {
     8,
     bTokenAdmin.address
   );
-  console.log('bDAI deployed at: ', bDAI.address);
 
   const bMIM = await deployBToken(
     ADDRESS.MIM,
@@ -217,7 +210,6 @@ export async function deployBTokens(admin: string) {
     8,
     bTokenAdmin.address
   );
-  console.log('bMIM deployed at: ', bMIM.address);
 
   const bLINK = await deployBToken(
     ADDRESS.LINK,
@@ -228,7 +220,6 @@ export async function deployBTokens(admin: string) {
     8,
     bTokenAdmin.address
   );
-  console.log('bLINK deployed at: ', bLINK.address);
 
   const bOHM = await deployBToken(
     ADDRESS.OHM,
@@ -239,7 +230,6 @@ export async function deployBTokens(admin: string) {
     8,
     bTokenAdmin.address
   );
-  console.log('bOHM deployed at: ', bOHM.address);
 
   const bBAL = await deployBToken(
     ADDRESS.BAL,
@@ -250,7 +240,6 @@ export async function deployBTokens(admin: string) {
     8,
     bTokenAdmin.address
   );
-  console.log('bBAL deployed at: ', bBAL.address);
 
   //const bALCX = await deployBToken(
   //  ADDRESS.ALCX,
@@ -261,7 +250,6 @@ export async function deployBTokens(admin: string) {
   //  8,
   //  bTokenAdmin.address
   //);
-  //console.log("bALCX deployed at: ", bALCX.address);
 
   // Deploy WETH
   baseRate = 0;
@@ -279,7 +267,6 @@ export async function deployBTokens(admin: string) {
     8,
     bTokenAdmin.address
   );
-  console.log('bWETH deployed at: ', bWETH.address);
 
   // Deploy WBTC
   baseRate = 0;
@@ -297,7 +284,6 @@ export async function deployBTokens(admin: string) {
     8,
     bTokenAdmin.address
   );
-  console.log('bWBTC deployed at: ', bWBTC.address);
 
   const bWstETH = await deployBToken(
     ADDRESS.wstETH,
@@ -308,7 +294,47 @@ export async function deployBTokens(admin: string) {
     8,
     bTokenAdmin.address
   );
-  console.log('bWstETH deployed at: ', bWstETH.address);
+
+
+  // const bCrvStEth = await deployBToken(
+  //   ADDRESS.CRV_STETH,
+  //   comptroller.address,
+  //   IRM.address,
+  //   "Blueberry CrvSTETH",
+  //   "bCrvSTETH",
+  //   8,
+  //   bTokenAdmin.address
+  // );
+
+  // const bCrvFrxEth = await deployBToken(
+  //   ADDRESS.CRV_FRXETH,
+  //   comptroller.address,
+  //   IRM.address,
+  //   "Blueberry CrvFRXETH",
+  //   "bCrvFRXETH",
+  //   8,
+  //   bTokenAdmin.address
+  // );
+
+  // const bCrvMim3Crv = await deployBToken(
+  //   ADDRESS.CRV_MIM3CRV,
+  //   comptroller.address,
+  //   IRM.address,
+  //   "Blueberry CrvMIM3CRV",
+  //   "bCrvMIM3CRV",
+  //   8,
+  //   bTokenAdmin.address
+  // );
+
+  // const bCrvCvxCrv = await deployBToken(
+  //   ADDRESS.CRV_CVXCRV_CRV,
+  //   comptroller.address,
+  //   IRM.address,
+  //   "Blueberry CrvCVXCRV",
+  //   "bCrvCVXCRV",
+  //   8,
+  //   bTokenAdmin.address
+  // );
 
   await comptroller._supportMarket(bUSDC.address, 0);
   await comptroller._supportMarket(bICHI.address, 0);

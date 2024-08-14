@@ -79,8 +79,6 @@ export interface CvxProtocol {
   bDAI: Contract;
   bMIM: Contract;
   bLINK: Contract;
-  bOHM: Contract;
-  // bSUSHI: Contract;
   bBAL: Contract;
   //bALCX: Contract;
   bWETH: Contract;
@@ -360,8 +358,6 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   bDAI = bTokens.bDAI;
   bMIM = bTokens.bMIM;
   bLINK = bTokens.bLINK;
-  bOHM = bTokens.bOHM;
-  // bSUSHI = bTokens.bSUSHI;
   bBAL = bTokens.bBAL;
   //bALCX = bTokens.bALCX;
   bWETH = bTokens.bWETH;
@@ -411,7 +407,6 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   );
 
   await wconvex.deployed();
-  console.log('Convex booster deployed');
   // Deploy CRV spell
   const ConvexSpell = await ethers.getContractFactory(CONTRACT_NAMES.ConvexSpell);
   convexSpell = <ConvexSpell>(
@@ -614,10 +609,6 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   await weth.approve(wethSoftVault.address, ethers.constants.MaxUint256);
   await wethSoftVault.deposit(utils.parseUnits('100', 18));
 
-  console.log('CRV Balance:', utils.formatEther(await crv.balanceOf(admin.address)));
-  console.log('USDC Balance:', utils.formatUnits(await usdc.balanceOf(admin.address), 6));
-  console.log('DAI Balance:', utils.formatEther(await dai.balanceOf(admin.address)));
-
   return {
     werc20,
     wconvex,
@@ -643,8 +634,6 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
     bDAI,
     bMIM,
     bLINK,
-    bOHM,
-    // bSUSHI,
     bBAL,
     //bALCX,
     bWETH,

@@ -97,7 +97,6 @@ export const setupOracles = async (): Promise<CoreOracle> => {
       ADDRESS.CHAINLINK_MIM_USD_FEED,
     ]
   );
-  console.log('chainlink oracle setup');
   const CoreOracle = await ethers.getContractFactory(CONTRACT_NAMES.CoreOracle);
   const oracle = <CoreOracle>await upgrades.deployProxy(CoreOracle, [admin.address], { unsafeAllow: ['delegatecall'] });
 
@@ -243,7 +242,6 @@ export const setupVaults = async (
     tokens.push(underlyingToken);
 
     const amount = await faucetToken(underlyingToken.address, utils.parseEther('20'), signer, 100);
-
     if (amount == 0) {
       tokens.pop();
       softVaults.pop();

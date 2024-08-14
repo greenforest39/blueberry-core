@@ -19,7 +19,7 @@ export const strategies: StrategyInfo[] = [
 export const setupStrategy = async () => {
   const [admin] = await ethers.getSigners();
   const protocol = await setupBasicBank();
-  console.log('bank setup');
+
   const escrowFactoryFactory = await ethers.getContractFactory('PoolEscrowFactory');
   const escrowFactory = <PoolEscrowFactory>await upgrades.deployProxy(escrowFactoryFactory, [admin.address], {
     unsafeAllow: ['delegatecall'],
