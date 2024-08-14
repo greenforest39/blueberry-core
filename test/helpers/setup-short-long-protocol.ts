@@ -105,6 +105,7 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
   let bWETH: Contract;
   let bWBTC: Contract;
   let bWstETH: Contract;
+  let bTokenAdmin: Contract;
 
   const initialDeposit = utils.parseUnits('200');
   const initialSwapAmount = utils.parseUnits('10');
@@ -215,8 +216,21 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
     ]
   );
 
-  const bTokens = await deployBTokens(admin.address, oracle.address);
+  const bTokens = await deployBTokens(admin.address);
   comptroller = bTokens.comptroller;
+
+  bUSDC = bTokens.bUSDC;
+  bICHI = bTokens.bICHI;
+  bCRV = bTokens.bCRV;
+  bDAI = bTokens.bDAI;
+  bMIM = bTokens.bMIM;
+  bLINK = bTokens.bLINK;
+  bBAL = bTokens.bBAL;
+  //bALCX = bTokens.bALCX;
+  bWETH = bTokens.bWETH;
+  bWBTC = bTokens.bWBTC;
+  bWstETH = bTokens.bWstETH;
+  bTokenAdmin = bTokens.bTokenAdmin;
 
   // Deploy Bank
   const Config = await ethers.getContractFactory('ProtocolConfig');
@@ -253,6 +267,121 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
     )
   );
   await shortLongSpell.deployed();
+  const SoftVault = await ethers.getContractFactory(CONTRACT_NAMES.SoftVault);
+
+  usdcSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bUSDC.address, 'Interest Bearing USDC', 'ibUSDC', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await usdcSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bUSDC.address, usdcSoftVault.address);
+
+  daiSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bDAI.address, 'Interest Bearing DAI', 'ibDAI', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await daiSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bDAI.address, daiSoftVault.address);
+
+  crvSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bCRV.address, 'Interest Bearing CRV', 'ibCRV', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await crvSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bCRV.address, crvSoftVault.address);
+
+  linkSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bLINK.address, 'Interest Bearing LINK', 'ibLINK', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await linkSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bLINK.address, linkSoftVault.address);
+
+  wbtcSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bWBTC.address, 'Interest Bearing WBTC', 'ibWBTC', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await wbtcSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bWBTC.address, wbtcSoftVault.address);
+
+  wethSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bWETH.address, 'Interest Bearing WETH', 'ibWETH', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await wethSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bWETH.address, wethSoftVault.address);
+
+  wstETHSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bWstETH.address, 'Interest Bearing WstETH', 'ibWstETH', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await wstETHSoftVault.deployed();
+  await bTokenAdmin._setSoftVault(bWstETH.address, wstETHSoftVault.address);
+
+  await softVaultOracle.registerSoftVault(daiSoftVault.address);
+  await softVaultOracle.registerSoftVault(wbtcSoftVault.address);
+  await softVaultOracle.registerSoftVault(wethSoftVault.address);
+  await softVaultOracle.registerSoftVault(wstETHSoftVault.address);
+  await softVaultOracle.registerSoftVault(linkSoftVault.address);
+  await softVaultOracle.registerSoftVault(crvSoftVault.address);
+  await softVaultOracle.registerSoftVault(usdcSoftVault.address);
+
+  await oracle.setRoutes(
+    [
+      daiSoftVault.address,
+      wbtcSoftVault.address,
+      linkSoftVault.address,
+      wstETHSoftVault.address,
+      crvSoftVault.address,
+      usdcSoftVault.address,
+      wethSoftVault.address,
+    ],
+    [
+      softVaultOracle.address,
+      softVaultOracle.address,
+      softVaultOracle.address,
+      softVaultOracle.address,
+      softVaultOracle.address,
+      softVaultOracle.address,
+      softVaultOracle.address,
+    ]
+  );
+
+  await shortLongSpell.addStrategy(daiSoftVault.address, MIN_POS_SIZE, MAX_POS_SIZE);
+
+  await shortLongSpell.setCollateralsMaxLTVs(0, [USDC, USDT, DAI], [MAX_LTV, MAX_LTV, MAX_LTV]);
+
+  await shortLongSpell.addStrategy(linkSoftVault.address, MIN_POS_SIZE, MAX_POS_SIZE);
+  await shortLongSpell.setCollateralsMaxLTVs(1, [WBTC, DAI, WETH], [MAX_LTV, MAX_LTV, MAX_LTV]);
+  await shortLongSpell.addStrategy(daiSoftVault.address, MIN_POS_SIZE, MAX_POS_SIZE);
+  await shortLongSpell.setCollateralsMaxLTVs(2, [WBTC, DAI, WETH, WstETH], [MAX_LTV, MAX_LTV, MAX_LTV, MAX_LTV]);
+
+  await shortLongSpell.addStrategy(wbtcSoftVault.address, MIN_POS_SIZE, MAX_POS_SIZE);
+  await shortLongSpell.setCollateralsMaxLTVs(3, [WBTC, DAI, WETH], [MAX_LTV, MAX_LTV, MAX_LTV]);
+  await shortLongSpell.addStrategy(wstETHSoftVault.address, MIN_POS_SIZE, MAX_POS_SIZE);
+  await shortLongSpell.setCollateralsMaxLTVs(4, [WBTC, DAI, WETH, WstETH], [MAX_LTV, MAX_LTV, MAX_LTV, MAX_LTV]);
+
   // Setup Bank
   await bank.whitelistSpells([shortLongSpell.address], [true]);
   await bank.whitelistTokens(

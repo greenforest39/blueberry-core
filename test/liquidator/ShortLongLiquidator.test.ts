@@ -4,7 +4,7 @@ import { BlueberryBank, ERC20, MockOracle, ShortLongLiquidator, ShortLongSpell }
 import { ethers, upgrades } from 'hardhat';
 import { setupShortLongProtocol } from '../helpers/setup-short-long-protocol';
 import { BigNumber, utils } from 'ethers';
-import SpellABI from '../../abi/ShortLongSpell.json';
+import SpellABI from '../../abi/contracts/spell/ShortLongSpell.sol/ShortLongSpell.json';
 import { getParaswapCalldata } from '../helpers/paraswap';
 import { evm_increaseTime, evm_mine_blocks } from '../helpers';
 import { expect } from 'chai';
@@ -23,6 +23,7 @@ describe('ShortLong Liquidator', () => {
   let admin: SignerWithAddress;
   let alice: SignerWithAddress;
   let treasury: SignerWithAddress;
+  let emergengyFund: SignerWithAddress;
 
   let usdc: ERC20;
   let dai: ERC20;
@@ -33,7 +34,7 @@ describe('ShortLong Liquidator', () => {
   let positionId: BigNumber;
 
   before(async () => {
-    [admin, alice, treasury] = await ethers.getSigners();
+    [admin, alice, treasury, emergengyFund] = await ethers.getSigners();
     usdc = <ERC20>await ethers.getContractAt('ERC20', USDC);
     dai = <ERC20>await ethers.getContractAt('ERC20', DAI);
     const protocol = await setupShortLongProtocol();
@@ -48,6 +49,7 @@ describe('ShortLong Liquidator', () => {
       [
         bank.address,
         treasury.address,
+        emergengyFund.address,
         POOL_ADDRESSES_PROVIDER,
         spell.address,
         BALANCER_VAULT,

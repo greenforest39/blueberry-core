@@ -100,6 +100,25 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
 
   let comptroller: Comptroller;
 
+  let bUSDC: Contract;
+  let bICHI: Contract;
+  let bCRV: Contract;
+  let bDAI: Contract;
+  let bMIM: Contract;
+  let bLINK: Contract;
+  let bOHM: Contract;
+  let bSUSHI: Contract;
+  let bBAL: Contract;
+  //let bALCX: Contract;
+  let bWETH: Contract;
+  let bWBTC: Contract;
+  let bWstETH: Contract;
+  let bTokenAdmin: Contract;
+  let bCrvStEth: Contract | undefined;
+  let bCrvFrxEth: Contract | undefined;
+  let bCrvMim3Crv: Contract | undefined;
+  let bCrvCvxCrv: Contract | undefined;
+
   [admin, alice, treasury] = await ethers.getSigners();
   usdc = <ERC20>await ethers.getContractAt('ERC20', USDC);
   dai = <ERC20>await ethers.getContractAt('ERC20', DAI);
@@ -314,8 +333,21 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   await stableOracle.registerCurveLp(ADDRESS.CRV_MIM3CRV);
   await stableOracle.registerCurveLp(ADDRESS.CRV_FRAXUSDC);
 
-  const bTokens = await deployBTokens(admin.address, oracle.address);
+  const bTokens = await deployBTokens(admin.address);
   comptroller = bTokens.comptroller;
+
+  bUSDC = bTokens.bUSDC;
+  bICHI = bTokens.bICHI;
+  bCRV = bTokens.bCRV;
+  bDAI = bTokens.bDAI;
+  bMIM = bTokens.bMIM;
+  bLINK = bTokens.bLINK;
+  bBAL = bTokens.bBAL;
+  //bALCX = bTokens.bALCX;
+  bWETH = bTokens.bWETH;
+  bWBTC = bTokens.bWBTC;
+  bWstETH = bTokens.bWstETH;
+  bTokenAdmin = bTokens.bTokenAdmin;
 
   // Deploy Bank
   const Config = await ethers.getContractFactory('ProtocolConfig');
@@ -443,7 +475,123 @@ export const setupCvxProtocol = async (minimized: boolean = false): Promise<CvxP
   );
   await bank.whitelistERC1155([werc20.address, wconvex.address], true);
 
-  await deploySoftVaults(config, bank, comptroller, bTokens.bTokens, admin, alice);
+  const HardVault = await ethers.getContractFactory(CONTRACT_NAMES.HardVault);
+  hardVault = <HardVault>await upgrades.deployProxy(HardVault, [config.address, admin.address], {
+    unsafeAllow: ['delegatecall'],
+  });
+
+  const SoftVault = await ethers.getContractFactory(CONTRACT_NAMES.SoftVault);
+  usdcSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bUSDC.address, 'Interest Bearing USDC', 'ibUSDC', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await usdcSoftVault.deployed();
+  await bank.addBank(USDC, usdcSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bUSDC.address, usdcSoftVault.address);
+
+  daiSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bDAI.address, 'Interest Bearing DAI', 'ibDAI', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await daiSoftVault.deployed();
+  await bank.addBank(DAI, daiSoftVault.address, hardVault.address, 8500);
+  await bTokenAdmin._setSoftVault(bDAI.address, daiSoftVault.address);
+
+  crvSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bCRV.address, 'Interest Bearing CRV', 'ibCRV', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await crvSoftVault.deployed();
+  await bank.addBank(CRV, crvSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bCRV.address, crvSoftVault.address);
+
+  mimSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bMIM.address, 'Interest Bearing MIM', 'ibMIM', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await mimSoftVault.deployed();
+  await bank.addBank(MIM, mimSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bMIM.address, mimSoftVault.address);
+
+  linkSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bLINK.address, 'Interest Bearing LINK', 'ibLINK', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await linkSoftVault.deployed();
+  await bank.addBank(LINK, linkSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bLINK.address, linkSoftVault.address);
+
+  wstETHSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bWstETH.address, 'Interest Bearing stETH', 'ibstETH', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await wstETHSoftVault.deployed();
+  await bank.addBank(WstETH, wstETHSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bWstETH.address, wstETHSoftVault.address);
+
+  wethSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bWETH.address, 'Interest Bearing WETH', 'ibWETH', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await wethSoftVault.deployed();
+  await bank.addBank(WETH, wethSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bWETH.address, wethSoftVault.address);
+
+  wbtcSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bWBTC.address, 'Interest Bearing WBTC', 'ibWBTC', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await wbtcSoftVault.deployed();
+  await bank.addBank(WBTC, wbtcSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bWBTC.address, wbtcSoftVault.address);
+
+  // Whitelist bank contract on compound
+  await comptroller._setCreditLimit(bank.address, bUSDC.address, utils.parseUnits('3000000'));
+  await comptroller._setCreditLimit(bank.address, bCRV.address, utils.parseUnits('3000000'));
+  await comptroller._setCreditLimit(bank.address, bDAI.address, utils.parseUnits('3000000'));
+  await comptroller._setCreditLimit(bank.address, bWBTC.address, utils.parseUnits('3000000'));
+  await comptroller._setCreditLimit(bank.address, bWstETH.address, utils.parseUnits('3000000'));
+  await comptroller._setCreditLimit(bank.address, bWETH.address, utils.parseUnits('3000000'));
+
+  await usdc.approve(usdcSoftVault.address, ethers.constants.MaxUint256);
+  await usdc.transfer(alice.address, utils.parseUnits('500', 6));
+  await usdcSoftVault.deposit(utils.parseUnits('5000', 6));
+
+  await crv.approve(crvSoftVault.address, ethers.constants.MaxUint256);
+  await crv.transfer(alice.address, utils.parseUnits('500', 18));
+  await crvSoftVault.deposit(utils.parseUnits('5000', 18));
+
+  await dai.approve(daiSoftVault.address, ethers.constants.MaxUint256);
+  await dai.transfer(alice.address, utils.parseUnits('500', 18));
+  await daiSoftVault.deposit(utils.parseUnits('5000', 18));
+
+  await weth.deposit({ value: utils.parseUnits('100') });
+  await weth.approve(wethSoftVault.address, ethers.constants.MaxUint256);
+  await wethSoftVault.deposit(utils.parseUnits('100', 18));
 
   return {
     werc20,

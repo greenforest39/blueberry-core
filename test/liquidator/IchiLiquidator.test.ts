@@ -13,7 +13,8 @@ import {
   WIchiFarm,
 } from '../../typechain-types';
 import { ADDRESS, CONTRACT_NAMES } from '../../constant';
-import SpellABI from '../../abi/IchiSpell.json';
+import SpellABI from '../../abi/contracts/spell/IchiSpell.sol/IchiSpell.json';
+
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
 
@@ -34,6 +35,7 @@ describe('Ichi Liquidator', () => {
   let admin: SignerWithAddress;
   let alice: SignerWithAddress;
   let treasury: SignerWithAddress;
+  let emergengyFund: SignerWithAddress;
 
   let usdc: ERC20;
   let dai: ERC20;
@@ -51,7 +53,7 @@ describe('Ichi Liquidator', () => {
   before(async () => {
     await fork();
 
-    [admin, alice, treasury] = await ethers.getSigners();
+    [admin, alice, treasury, emergengyFund] = await ethers.getSigners();
     usdc = <ERC20>await ethers.getContractAt('ERC20', USDC);
     dai = <ERC20>await ethers.getContractAt('ERC20', DAI);
     ichi = <MockIchiV2>await ethers.getContractAt('MockIchiV2', ICHI);
@@ -97,6 +99,7 @@ describe('Ichi Liquidator', () => {
       [
         bank.address,
         treasury.address,
+        emergengyFund.address,
         POOL_ADDRESSES_PROVIDER,
         spell.address,
         UNISWAP_V3_ROUTER,

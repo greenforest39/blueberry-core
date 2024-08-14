@@ -127,6 +127,20 @@ export const setupIchiProtocol = async (): Promise<Protocol> => {
 
   let comptroller: Comptroller;
 
+  let bUSDC: Contract;
+  let bICHI: Contract;
+  let bCRV: Contract;
+  let bDAI: Contract;
+  let bMIM: Contract;
+  let bLINK: Contract;
+  let bOHM: Contract;
+  let bSUSHI: Contract;
+  let bBAL: Contract;
+  //let bALCX: Contract;
+  let bWETH: Contract;
+  let bWBTC: Contract;
+  let bTokenAdmin: Contract;
+
   [admin, alice, treasury] = await ethers.getSigners();
   usdc = <ERC20>await ethers.getContractAt('ERC20', USDC);
   dai = <ERC20>await ethers.getContractAt('ERC20', DAI);
@@ -306,8 +320,68 @@ export const setupIchiProtocol = async (): Promise<Protocol> => {
   );
   await bank.whitelistERC1155([werc20.address, wichi.address], true);
 
-  const bTokens = await deployBTokens(admin.address, oracle.address);
+  const bTokens = await deployBTokens(admin.address);
   comptroller = bTokens.comptroller;
+
+  bUSDC = bTokens.bUSDC;
+  bICHI = bTokens.bICHI;
+  bCRV = bTokens.bCRV;
+  bDAI = bTokens.bDAI;
+  bMIM = bTokens.bMIM;
+  bLINK = bTokens.bLINK;
+  bBAL = bTokens.bBAL;
+  //bALCX = bTokens.bALCX;
+  bWETH = bTokens.bWETH;
+  bWBTC = bTokens.bWBTC;
+  bTokenAdmin = bTokens.bTokenAdmin;
+
+  const HardVault = await ethers.getContractFactory(CONTRACT_NAMES.HardVault);
+  hardVault = <HardVault>await upgrades.deployProxy(HardVault, [config.address, admin.address], {
+    unsafeAllow: ['delegatecall'],
+  });
+
+  const SoftVault = await ethers.getContractFactory(CONTRACT_NAMES.SoftVault);
+  usdcSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bUSDC.address, 'Interest Bearing USDC', 'ibUSDC', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await usdcSoftVault.deployed();
+  await bank.addBank(USDC, usdcSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bUSDC.address, usdcSoftVault.address);
+
+  daiSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bDAI.address, 'Interest Bearing DAI', 'ibDAI', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await daiSoftVault.deployed();
+  await bank.addBank(DAI, daiSoftVault.address, hardVault.address, 8500);
+  await bTokenAdmin._setSoftVault(bDAI.address, daiSoftVault.address);
+
+  ichiSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bICHI.address, 'Interest Bearing ICHI', 'ibICHI', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await ichiSoftVault.deployed();
+  await bank.addBank(ICHI, ichiSoftVault.address, hardVault.address, 9000);
+  await bTokenAdmin._setSoftVault(bICHI.address, ichiSoftVault.address);
+
+  wethSoftVault = <SoftVault>await upgrades.deployProxy(
+    SoftVault,
+    [config.address, bWETH.address, 'Interest Bearing WETH', 'ibWETH', admin.address],
+    {
+      unsafeAllow: ['delegatecall'],
+    }
+  );
+  await wethSoftVault.deployed();
 
   const softVaults = await deploySoftVaults(config, bank, comptroller, bTokens.bTokens, admin, alice);
   const bankInfo = <IBank.BankStructOutput>await bank.getBankInfo(USDC);
