@@ -48,13 +48,14 @@ describe('Aura Liquidator', () => {
     spell = protocol.auraSpell;
     mockOracle = protocol.mockOracle;
 
+
     const depositAmount = utils.parseUnits('110', 18); // CRV => $110
-    const borrowAmount = utils.parseUnits('250', 6); // USDC
+    const borrowAmount = utils.parseUnits('250', 6); // USD
     const iface = new ethers.utils.Interface(SpellABI);
 
     await usdc.approve(bank.address, ethers.constants.MaxUint256);
     await dai.approve(bank.address, ethers.constants.MaxUint256);
-
+        
     await bank.execute(
       0,
       spell.address,
@@ -95,7 +96,6 @@ describe('Aura Liquidator', () => {
     await evm_increaseTime(4 * 3600);
     await evm_mine_blocks(10);
 
-    console.log('===DAI token dumped from $5 to $0.008===');
     await mockOracle.setPrice(
       [DAI],
       [

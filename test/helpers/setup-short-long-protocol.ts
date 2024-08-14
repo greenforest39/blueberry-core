@@ -27,6 +27,9 @@ import {
 import { ADDRESS, CONTRACT_NAMES } from '../../constant';
 import { deployBTokens } from './money-market';
 import { impersonateAccount } from '.';
+import { deploySoftVaults } from './markets';
+import { faucetToken } from './paraswap';
+import { ShortLongStrategy, shortLongStrategies } from './strategy-registry/shortLongStrategies';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable prefer-const */
@@ -56,40 +59,20 @@ const MAX_POS_SIZE = utils.parseUnits('2000000', 18); // 2000000 USD
 const MAX_LTV = 300000; // 300,000 USD
 const CREDIT_LIMIT = utils.parseUnits('3000000000'); // 300M USD
 
+
 export interface ShortLongProtocol {
   werc20: WERC20;
   wapxETH: WApxEth;
   mockOracle: MockOracle;
-  stableOracle: CurveStableOracle;
-  volatileOracle: CurveVolatileOracle;
-  tricryptoOracle: CurveTricryptoOracle;
   softVaultOracle: SoftVaultOracle;
   oracle: CoreOracle;
   config: ProtocolConfig;
   bank: BlueberryBank;
   shortLongSpell: ShortLongSpell;
-  erc4626ShortLongSpell: Erc4626ShortLongSpell;
-  usdcSoftVault: SoftVault;
-  crvSoftVault: SoftVault;
-  daiSoftVault: SoftVault;
-  linkSoftVault: SoftVault;
-  wbtcSoftVault: SoftVault;
-  wstETHSoftVault: SoftVault;
-  hardVault: HardVault;
   feeManager: FeeManager;
   uniV3Lib: UniV3WrappedLib;
-  bUSDC: Contract;
-  bICHI: Contract;
-  bCRV: Contract;
-  bDAI: Contract;
-  bMIM: Contract;
-  bLINK: Contract;
-  bOHM: Contract;
-  // bSUSHI: Contract;
-  bBAL: Contract;
-  //bALCX: Contract;
-  bWETH: Contract;
-  bWBTC: Contract;
+  strategies: ShortLongStrategy[];
+  underlyingToSoftVault: Map<string, string>;
 }
 
 export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
@@ -108,9 +91,6 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
   let werc20: WERC20;
   let wapxETH: WApxEth;
   let mockOracle: MockOracle;
-  let stableOracle: CurveStableOracle;
-  let volatileOracle: CurveVolatileOracle;
-  let tricryptoOracle: CurveTricryptoOracle;
   let softVaultOracle: SoftVaultOracle;
   let oracle: CoreOracle;
   let shortLongSpell: ShortLongSpell;
@@ -164,83 +144,40 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
   // deposit 200 eth -> 200 WETH
   await weth.deposit({ value: initialDeposit });
 
-  // swap 40 WETH -> USDC, 40 WETH -> DAI
-  await weth.approve(ADDRESS.UNI_V2_ROUTER, ethers.constants.MaxUint256);
-
-  const uniV2Router = <IUniswapV2Router02>(
-    await ethers.getContractAt(CONTRACT_NAMES.IUniswapV2Router02, ADDRESS.UNI_V2_ROUTER)
-  );
-
-  // WETH -> USDC
-  await uniV2Router.swapExactTokensForTokens(
-    initialSwapAmount,
-    0,
-    [WETH, USDC],
-    admin.address,
-    ethers.constants.MaxUint256
-  );
-  // WETH -> DAI
-  await uniV2Router.swapExactTokensForTokens(
-    initialSwapAmount,
-    0,
-    [WETH, DAI],
-    admin.address,
-    ethers.constants.MaxUint256
-  );
-  // WETH -> LINK
-  await uniV2Router.swapExactTokensForTokens(
-    initialSwapAmount,
-    0,
-    [WETH, LINK],
-    admin.address,
-    ethers.constants.MaxUint256
-  );
-  // WETH -> WBTC
-  await uniV2Router.swapExactTokensForTokens(
-    initialSwapAmount,
-    0,
-    [WETH, WBTC],
-    admin.address,
-    ethers.constants.MaxUint256
-  );
-  // Swap 40 weth -> crv
-  await weth.approve(ADDRESS.SUSHI_ROUTER, ethers.constants.MaxUint256);
-
-  const sushiRouter = <IUniswapV2Router02>(
-    await ethers.getContractAt(CONTRACT_NAMES.IUniswapV2Router02, ADDRESS.SUSHI_ROUTER)
-  );
-  // WETH -> CRV
-  await sushiRouter.swapExactTokensForTokens(
-    utils.parseUnits('10'),
-    0,
-    [WETH, CRV],
-    admin.address,
-    ethers.constants.MaxUint256
-  );
-  // Try to swap some crv to usdc -> Swap router test
-  await crv.approve(ADDRESS.SUSHI_ROUTER, 0);
-  await crv.approve(ADDRESS.SUSHI_ROUTER, ethers.constants.MaxUint256);
-  await sushiRouter.swapExactTokensForTokens(
-    utils.parseUnits('10'),
-    0,
-    [CRV, WETH, USDC],
-    admin.address,
-    ethers.constants.MaxUint256
-  );
-
   // Transfer wstETH from whale
   const wstETHWhale = '0x5fEC2f34D80ED82370F733043B6A536d7e9D7f8d';
+  const crvWhale = '0x6cC5F688a315f3dC28A7781717a9A798a59fDA7b';
+  const daiWhale = '0x60FaAe176336dAb62e284Fe19B885B095d29fB7F';
 
   await admin.sendTransaction({
     to: wstETHWhale,
     value: utils.parseEther('10'),
   });
 
+  await admin.sendTransaction({
+    to: crvWhale,
+    value: utils.parseEther('10'),
+  });
+  
   await impersonateAccount(wstETHWhale);
   const whale1 = await ethers.getSigner(wstETHWhale);
   const wstETH = <ERC20>await ethers.getContractAt('ERC20', WstETH);
+  await wstETH.connect(whale1).transfer(admin.address, utils.parseUnits('100000'));
 
-  await wstETH.connect(whale1).transfer(admin.address, utils.parseUnits('30'));
+  await impersonateAccount(crvWhale);
+  const whale2 = await ethers.getSigner(crvWhale);
+  await crv.connect(whale2).transfer(admin.address, utils.parseUnits('100000'));
+
+  await impersonateAccount(daiWhale);
+  const whale3 = await ethers.getSigner(daiWhale);
+  await dai.connect(whale3).transfer(admin.address, utils.parseUnits('100000'));
+
+  await faucetToken(CRV, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(USDC, utils.parseUnits('100000', 6), admin, 100);
+  await faucetToken(DAI, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(WETH, utils.parseUnits('100000'), admin, 100);
+  await faucetToken(WBTC, utils.parseUnits('100000', 8), admin, 100);
+  await faucetToken(LINK, utils.parseUnits('100000'), admin, 100);
 
   const LinkedLibFactory = await ethers.getContractFactory('UniV3WrappedLib');
   const LibInstance = await LinkedLibFactory.deploy();
@@ -266,39 +203,6 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
       BigNumber.from(10).pow(18), // $1
     ]
   );
-
-  const CurveStableOracleFactory = await ethers.getContractFactory(CONTRACT_NAMES.CurveStableOracle);
-  stableOracle = <CurveStableOracle>(
-    await upgrades.deployProxy(
-      CurveStableOracleFactory,
-      [ADDRESS.CRV_ADDRESS_PROVIDER, mockOracle.address, admin.address],
-      { unsafeAllow: ['delegatecall'] }
-    )
-  );
-
-  await stableOracle.deployed();
-
-  const CurveVolatileOracleFactory = await ethers.getContractFactory(CONTRACT_NAMES.CurveVolatileOracle);
-  volatileOracle = <CurveVolatileOracle>(
-    await upgrades.deployProxy(
-      CurveVolatileOracleFactory,
-      [ADDRESS.CRV_ADDRESS_PROVIDER, mockOracle.address, admin.address],
-      { unsafeAllow: ['delegatecall'] }
-    )
-  );
-
-  await volatileOracle.deployed();
-
-  const CurveTricryptoOracleFactory = await ethers.getContractFactory(CONTRACT_NAMES.CurveTricryptoOracle);
-  tricryptoOracle = <CurveTricryptoOracle>(
-    await upgrades.deployProxy(
-      CurveTricryptoOracleFactory,
-      [ADDRESS.CRV_ADDRESS_PROVIDER, mockOracle.address, admin.address],
-      { unsafeAllow: ['delegatecall'] }
-    )
-  );
-
-  await tricryptoOracle.deployed();
 
   const SoftVaultOracleFactory = await ethers.getContractFactory(CONTRACT_NAMES.SoftVaultOracle);
   softVaultOracle = <SoftVaultOracle>await upgrades.deployProxy(
@@ -350,14 +254,13 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
 
   const bTokens = await deployBTokens(admin.address);
   comptroller = bTokens.comptroller;
+
   bUSDC = bTokens.bUSDC;
   bICHI = bTokens.bICHI;
   bCRV = bTokens.bCRV;
   bDAI = bTokens.bDAI;
   bMIM = bTokens.bMIM;
   bLINK = bTokens.bLINK;
-  bOHM = bTokens.bOHM;
-  // bSUSHI = bTokens.bSUSHI;
   bBAL = bTokens.bBAL;
   //bALCX = bTokens.bALCX;
   bWETH = bTokens.bWETH;
@@ -599,13 +502,11 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
   console.log('USDC Balance:', utils.formatUnits(await usdc.balanceOf(admin.address), 6));
   console.log('DAI Balance:', utils.formatEther(await dai.balanceOf(admin.address)));
 
+
   return {
     werc20,
     wapxETH,
     mockOracle,
-    stableOracle,
-    volatileOracle,
-    tricryptoOracle,
     softVaultOracle,
     oracle,
     config,
@@ -621,17 +522,7 @@ export const setupShortLongProtocol = async (): Promise<ShortLongProtocol> => {
     wstETHSoftVault,
     hardVault,
     uniV3Lib: LibInstance,
-    bUSDC,
-    bICHI,
-    bCRV,
-    bDAI,
-    bMIM,
-    bLINK,
-    bOHM,
-    // bSUSHI,
-    bBAL,
-    //bALCX,
-    bWETH,
-    bWBTC,
+    strategies: shortLongStrategies,
+    underlyingToSoftVault,
   };
 };

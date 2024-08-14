@@ -3,7 +3,7 @@ import { BlueberryBank, WERC20, ERC20, ShortLongSpell, SoftVault } from '../../.
 import { ethers } from 'hardhat';
 import { ADDRESS } from '../../../../constant';
 import {
-  ShortLongProtocol,
+  ShortLongERC4626Protocol,
   evm_mine_blocks,
   fork,
   setupShortLongProtocol,
@@ -41,7 +41,7 @@ describe('ShortLong Spell Test test', () => {
   let werc20: WERC20;
   let spell: ShortLongSpell;
   let bank: BlueberryBank;
-  let protocol: ShortLongProtocol;
+  let protocol: ShortLongERC4626Protocol;
   let daiSoftVault: SoftVault;
   let linkSoftVault: SoftVault;
   let wbtcSoftVault: SoftVault;
@@ -79,7 +79,6 @@ describe('ShortLong Spell Test test', () => {
 
   it('should be able to long DAI + earn wstETH (collateral: WBTC, borrowToken: DAI)', async () => {
     snapshotId = await takeSnapshot();
-    console.log('Snapshot ID:', snapshotId);
     await testFarm(4, WBTC, DAI, WstETH, utils.parseUnits('0.1', 8), utils.parseUnits('100', 18), 0, wbtc);
   });
 
@@ -475,11 +474,9 @@ describe('ShortLong Spell Test test', () => {
     );
 
     const bankInfo = await bank.getBankInfo(DAI);
-    console.log('DAI Bank Info:', bankInfo);
 
     const pos = await bank.getPositionInfo(positionId);
-    console.log('Position Info:', pos);
-    console.log('Position Value:', await bank.callStatic.getPositionValue(positionId));
+
     expect(pos.owner).to.be.equal(admin.address);
     expect(pos.collToken).to.be.equal(werc20.address);
     expect(pos.debtToken).to.be.equal(borrowToken);
@@ -538,7 +535,6 @@ describe('ShortLong Spell Test test', () => {
       ])
     );
     const afterColBalance = await collTokenContract.balanceOf(admin.address);
-    console.log('Col Token Balance Change:', afterColBalance.sub(beforeColBalance));
     const depositFee = depositAmount.mul(50).div(10000);
     const withdrawFee = depositAmount.sub(depositFee).mul(50).div(10000);
     expect(afterColBalance.sub(beforeColBalance)).to.be.gte(
